@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Module>
+	<!-- ======================================================
+	     Banks of Calradia
+	     Author: Dahaka / Quantum DevLabs
+	     Version: 1.0.0 (Stable / Core Release)
+	     Description:
+	       Adds realistic banking mechanics, interest, loans,
+	       and prosperity influence to the Calradian economy.
+	     ====================================================== -->
+
+	<Name value="Banks of Calradia" />
+	<Id value="BanksOfCalradia" />
+	<Version value="1.0.0" />
+	<SingleplayerModule value="true" />
+	<MultiplayerModule value="false" />
+
+	<!-- ======================================================
+	     Dependencies — Ensure load order and base systems
+	     ====================================================== -->
+	<DependedModules>
+		<DependedModule Id="Native"          DependentVersion="v1.3.2" Optional="false" />
+		<DependedModule Id="SandBoxCore"     DependentVersion="v1.3.2" Optional="false" />
+		<DependedModule Id="Sandbox"         DependentVersion="v1.3.2" Optional="false" />
+		<DependedModule Id="StoryMode"       DependentVersion="v1.3.2" Optional="true" />
+	</DependedModules>
+
+	<!-- ======================================================
+	     Main SubModule
+	     ====================================================== -->
+	<SubModules>
+		<SubModule>
+			<Name value="Banks of Calradia — Core Systems" />
+			<DLLName value="BanksOfCalradia.dll" />
+			<SubModuleClassType value="BanksOfCalradia.Source.Core.SubModule" />
+
+			<Tags>
+				<Tag key="DedicatedServerType" value="none" />
+				<Tag key="IsNoRenderModeElement" value="false" />
+			</Tags>
+
+			<!-- Optional auto-load order -->
+			<LoadAfterIds>
+				<LoadAfterId value="Sandbox" />
+				<LoadAfterId value="StoryMode" />
+			</LoadAfterIds>
+		</SubModule>
+	</SubModules>
+
+	<!-- ======================================================
+	     XML Data Files (Language / Templates / etc)
+	     ====================================================== -->
+	<Xmls>
+		<!-- Localization files are dynamically loaded by L -->
+		<!-- Example future entry:
+		<XmlNode Path="ModuleData/Languages/BR/" Type="string" />
+		-->
+	</Xmls>
+</Module>

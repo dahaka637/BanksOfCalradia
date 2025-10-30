@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData
+  id="English"
+  name="English"
+  subtitle_extension="en"
+  supported_iso="en,en-us,en-gb,en-au,en-ca,en-nz,en-za,en-ie,en-jm"
+  text_processor="TaleWorlds.Localization.TextProcessor.LanguageProcessors.EnglishTextProcessor"
+  under_development="false"
+>
+  <LanguageFile xml_path="EN/bc_strings.xml" />
+</LanguageData>

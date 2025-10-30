@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema" type="string">
+  <tags>
+    <tag language="EN" />
+  </tags>
+  <strings>
+    <!-- Initialization -->
+    <string id="bank_mod_boot_ok" text="[BanksOfCalradia] Mod loaded successfully." />
+    <string id="bank_mod_init_ok" text="[BanksOfCalradia] Core systems initialized successfully." />
+    <string id="bank_data_load_fail" text="[BanksOfCalradia] Failed to load saved data. Creating new instance." />
+
+    <!-- Main Menu -->
+    <string id="bank_visit_option" text="Visit the Bank" />
+    <string id="bank_open_savings" text="Access Savings Account" />
+    <string id="bank_open_loans" text="Access Loan Services" />
+    <string id="bank_return_city" text="Return to Town" />
+    <string id="bank_default_city" text="Town" />
+    <string id="bank_visit_label" text="Visit Bank of {CITY}" />
+
+    <!-- Menu Text -->
+    <string id="bank_menu_text" 
+            text="Bank of {CITY}\n\nWelcome to the city's bank.\n\nChoose an option below to manage your finances:\n\n- Access Savings Account\n- Loan Services\n- Return to Town" />
+
+    <!-- Trade XP -->
+    <string id="bank_trade_xp_gain" text="+{AMOUNT} Trade XP gained from bank profits." />
+    <string id="bank_trade_xp_error" text="[BanksOfCalradia][Trade XP Error] {ERROR}" />
+  </strings>
+</base>

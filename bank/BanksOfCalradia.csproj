@@ -1,0 +1,161 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<!-- Framework alvo do jogo -->
+		<TargetFramework>net472</TargetFramework>
+
+		<!-- Build 64 bits e otimizações -->
+		<Platforms>x64</Platforms>
+		<PlatformTarget>x64</PlatformTarget>
+		<Optimize>true</Optimize>
+		<LangVersion>latest</LangVersion>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+		<!-- Caminho de saída -->
+		<OutputPath>bin\Win64_Shipping_Client\</OutputPath>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+
+		<!-- Caminho base do jogo -->
+		<BannerlordPath Condition=" '$(BannerlordPath)' == '' ">
+			C:\Program Files (x86)\Steam\steamapps\common\Mount &amp; Blade II Bannerlord
+		</BannerlordPath>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- ===================================================== -->
+		<!-- 🧩 REFERÊNCIAS NÚCLEO DO BANNERLORD -->
+		<!-- ===================================================== -->
+		<Reference Include="TaleWorlds.Core">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.Core.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.Library">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.Library.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.ObjectSystem">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.ObjectSystem.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.Localization">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.Localization.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.SaveSystem">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.SaveSystem.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.CampaignSystem">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.CampaignSystem.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.MountAndBlade">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.MountAndBlade.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<!-- ===================================================== -->
+		<!-- 🪟 DEPENDÊNCIAS SECUNDÁRIAS -->
+		<!-- ===================================================== -->
+		<Reference Include="TaleWorlds.Engine">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.Engine.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.ScreenSystem">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.ScreenSystem.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.InputSystem">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.InputSystem.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.PlatformService">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.PlatformService.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.PlayerServices">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.PlayerServices.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.Starter.Library">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.Starter.Library.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<!-- ===================================================== -->
+		<!-- 🎨 FRAMEWORK DE UI (GAUNTLET) -->
+		<!-- ===================================================== -->
+		<Reference Include="TaleWorlds.GauntletUI">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.GauntletUI.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.GauntletUI.Data">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.GauntletUI.Data.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.GauntletUI.ExtraWidgets">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.GauntletUI.ExtraWidgets.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.GauntletUI.PrefabSystem">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.GauntletUI.PrefabSystem.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.TwoDimension">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.TwoDimension.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.TwoDimension.Standalone">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.TwoDimension.Standalone.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<!-- ===================================================== -->
+		<!-- ⚙️ SUPORTE ADICIONAL -->
+		<!-- ===================================================== -->
+		<Reference Include="Newtonsoft.Json">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\Newtonsoft.Json.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+
+		<Reference Include="TaleWorlds.Network">
+			<HintPath>$(BannerlordPath)\bin\Win64_Shipping_Client\TaleWorlds.Network.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+	</ItemGroup>
+	<!-- ===================================================== -->
+	<!-- 🧱 CONFIGURAÇÕES DE BUILD POR PLATAFORMA -->
+	<!-- ===================================================== -->
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+		<Optimize>false</Optimize>
+		<DebugSymbols>true</DebugSymbols>
+		<DebugType>portable</DebugType>
+		<OutputPath>bin\Win64_Shipping_Client\</OutputPath>
+		<PlatformTarget>x64</PlatformTarget>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+		<Optimize>true</Optimize>
+		<DebugSymbols>false</DebugSymbols>
+		<OutputPath>bin\Win64_Shipping_Client\</OutputPath>
+		<PlatformTarget>x64</PlatformTarget>
+	</PropertyGroup>
+
+</Project>

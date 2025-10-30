@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema" type="string">
+  <tags>
+    <tag language="ES" />
+  </tags>
+  <strings>
+    <!-- Inicialización -->
+    <string id="bank_mod_boot_ok" text="[BanksOfCalradia] Mod cargado correctamente." />
+    <string id="bank_mod_init_ok" text="[BanksOfCalradia] Sistemas principales inicializados correctamente." />
+    <string id="bank_data_load_fail" text="[BanksOfCalradia] Error al cargar los datos guardados. Creando una nueva instancia." />
+
+    <!-- Menú principal -->
+    <string id="bank_visit_option" text="Visitar el Banco" />
+    <string id="bank_open_savings" text="Acceder a la Cuenta de Ahorros" />
+    <string id="bank_open_loans" text="Acceder a los Servicios de Préstamos" />
+    <string id="bank_return_city" text="Regresar a la Ciudad" />
+    <string id="bank_default_city" text="Ciudad" />
+    <string id="bank_visit_label" text="Visitar el Banco de {CITY}" />
+
+    <!-- Texto del menú -->
+    <string id="bank_menu_text"
+            text="Banco de {CITY}\n\nBienvenido al banco de la ciudad.\n\nElige una opción a continuación para gestionar tus recursos:\n\n- Acceder a la Cuenta de Ahorros\n- Servicios de Préstamos\n- Regresar a la Ciudad" />
+
+    <!-- Experiencia de Comercio -->
+    <string id="bank_trade_xp_gain" text="+{AMOUNT} XP de Comercio obtenidos de las ganancias bancarias." />
+    <string id="bank_trade_xp_error" text="[BanksOfCalradia][Error XP Comercio] {ERROR}" />
+  </strings>
+</base>
