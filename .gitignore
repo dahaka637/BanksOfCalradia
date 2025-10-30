@@ -1,0 +1,25 @@
+# Build e dependências
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.cache
+*.pdb
+*.dbmdl
+*.bak
+*.tmp
+*.log
+
+# Arquivos de sistema
+Thumbs.db
+Desktop.ini
+
+# Backups e temporários
+*.old
+*.orig
+*.backup
+
+# Bannerlord Mod output
+Publish/
+Module/
