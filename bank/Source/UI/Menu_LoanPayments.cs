@@ -13,29 +13,19 @@ using BanksOfCalradia.Source.Systems.Data;
 
 namespace BanksOfCalradia.Source.UI
 {
-    // ============================================
-    // BankMenu_LoanPay (hardened)
-    // - Lista e pagamento de empréstimos ativos
-    // - Popup de seleção (1 contrato por vez)
-    // - Filtra contratos quitados (Remaining <= 0.01)
-    // - Armazena só LoanId (evita refs quebradas após load)
-    // - Blindado contra null/contexto inválido
-    // - Localização nativa via helper L
-    // ============================================
     public static class BankMenu_LoanPay
     {
         private const string SEP = "____________________";
 
-        // Guardado somente o ID, não a referência
+        // Considero empréstimo "realmente quitado" abaixo desse threshold
+        private const float ACTIVE_LOAN_THRESHOLD = 0.5f;
+
         private static string _selectedLoanId = null;
 
         private static BankCampaignBehavior _behaviorRef;
         private static CampaignGameStarter _starterRef;
         private static bool _registered;
 
-        // ============================================
-        // Registro dos menus
-        // ============================================
         public static void RegisterMenu(CampaignGameStarter starter, BankCampaignBehavior behavior)
         {
             if (_registered)
@@ -45,21 +35,18 @@ namespace BanksOfCalradia.Source.UI
             _behaviorRef = behavior;
             _starterRef = starter;
 
-            // Menu principal (lista de empréstimos da cidade atual)
             starter.AddGameMenu(
                 "bank_loan_pay",
                 L.S("loanpay_list_loading", "Loading active loans..."),
                 OnMenuInit_List
             );
 
-            // Detalhes do contrato selecionado
             starter.AddGameMenu(
                 "bank_loan_detail",
                 L.S("loanpay_detail_loading", "Loading contract details..."),
                 OnMenuInit_Detail
             );
 
-            // Voltar do detalhe para a lista
             starter.AddGameMenuOption(
                 "bank_loan_detail",
                 "loan_detail_back",
@@ -72,7 +59,6 @@ namespace BanksOfCalradia.Source.UI
                 _ => SafeSwitchToMenu("bank_loan_pay")
             );
 
-            // Pagar contrato selecionado
             starter.AddGameMenuOption(
                 "bank_loan_detail",
                 "loan_detail_pay",
@@ -81,15 +67,15 @@ namespace BanksOfCalradia.Source.UI
                 {
                     args.optionLeaveType = GameMenuOption.LeaveType.Continue;
                     var loan = GetSelectedLoan();
-                    return loan != null && loan.Remaining > 0.01f;
+                    return loan != null && loan.Remaining > ACTIVE_LOAN_THRESHOLD;
                 },
                 _ => PromptPayment()
             );
         }
 
-        // =========================================================
+        // -------------------------------------------------------------
         // Helpers centrais
-        // =========================================================
+        // -------------------------------------------------------------
         private static BankCampaignBehavior GetBehavior()
         {
             if (_behaviorRef == null && Campaign.Current != null)
@@ -134,9 +120,9 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
-        // =========================================================
-        // Menu principal (lista/ações)
-        // =========================================================
+        // -------------------------------------------------------------
+        // Lista de empréstimos da cidade atual
+        // -------------------------------------------------------------
         private static void OnMenuInit_List(MenuCallbackArgs args)
         {
             try
@@ -164,11 +150,11 @@ namespace BanksOfCalradia.Source.UI
 
                 var loans = storage.GetLoans(playerId) ?? new List<BankLoanData>();
 
-                // Filtra só desta cidade e ativos
+                // Filtra só desta cidade e realmente ativos
                 List<BankLoanData> cityLoans = loans.FindAll(l =>
                     l != null &&
                     l.TownId == townId &&
-                    l.Remaining > 0.01f
+                    l.Remaining > ACTIVE_LOAN_THRESHOLD
                 );
 
                 args.MenuTitle = L.T("loanpay_list_title", "Bank of {CITY} — Active Loans");
@@ -196,10 +182,9 @@ namespace BanksOfCalradia.Source.UI
                     SetMenuText(args, body);
                 }
 
-                // Limpa botões gerados anteriormente
+                // Limpa botões antigos
                 ClearMenuOptions(args);
 
-                // Botão de seleção
                 if (_starterRef != null)
                 {
                     _starterRef.AddGameMenuOption(
@@ -214,7 +199,6 @@ namespace BanksOfCalradia.Source.UI
                         _ => ShowLoanPicker()
                     );
 
-                    // Voltar ao menu de empréstimos
                     _starterRef.AddGameMenuOption(
                         "bank_loan_pay",
                         "loan_pay_back",
@@ -237,9 +221,9 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
-        // =========================================================
-        // Popup de seleção dos contratos ativos
-        // =========================================================
+        // -------------------------------------------------------------
+        // Picker de contratos
+        // -------------------------------------------------------------
         private static void ShowLoanPicker()
         {
             try
@@ -270,7 +254,7 @@ namespace BanksOfCalradia.Source.UI
                 var validLoans = allLoans.FindAll(l =>
                     l != null &&
                     l.TownId == townId &&
-                    l.Remaining > 0.01f
+                    l.Remaining > ACTIVE_LOAN_THRESHOLD
                 );
 
                 if (validLoans.Count == 0)
@@ -291,20 +275,15 @@ namespace BanksOfCalradia.Source.UI
                     idx++;
                 }
 
-                var title = L.S("loanpay_picker_title", "Select Contract");
-                var desc = L.S("loanpay_picker_desc", "Choose a contract to see details and make payments.");
-                var ok = L.S("popup_open", "Open");
-                var cancel = L.S("popup_cancel", "Cancel");
-
                 var data = new MultiSelectionInquiryData(
-                    title,
-                    desc,
+                    L.S("loanpay_picker_title", "Select Contract"),
+                    L.S("loanpay_picker_desc", "Choose a contract to see details and make payments."),
                     elements,
                     true,
                     1,
                     1,
-                    ok,
-                    cancel,
+                    L.S("popup_open", "Open"),
+                    L.S("popup_cancel", "Cancel"),
                     selected =>
                     {
                         try
@@ -319,7 +298,7 @@ namespace BanksOfCalradia.Source.UI
                             _selectedLoanId = selected[0].Identifier as string;
 
                             var loan = GetSelectedLoan();
-                            if (loan == null)
+                            if (loan == null || loan.Remaining <= ACTIVE_LOAN_THRESHOLD)
                             {
                                 Warn(L.S("loanpay_not_found", "Contract not found or invalid."));
                                 SafeSwitchToMenu("bank_loan_pay");
@@ -353,9 +332,9 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
-        // =========================================================
-        // Detalhes do contrato selecionado
-        // =========================================================
+        // -------------------------------------------------------------
+        // Detalhes do contrato
+        // -------------------------------------------------------------
         private static void OnMenuInit_Detail(MenuCallbackArgs args)
         {
             try
@@ -371,8 +350,10 @@ namespace BanksOfCalradia.Source.UI
 
                 string townName = Settlement.CurrentSettlement?.Name?.ToString() ?? L.S("default_city", "City");
 
+                bool isActive = loan.Remaining > ACTIVE_LOAN_THRESHOLD;
+
                 string statusLine;
-                if (loan.Remaining <= 0.01f)
+                if (!isActive)
                 {
                     statusLine = L.S("loanpay_status_paid", "Status: Paid off");
                 }
@@ -395,12 +376,12 @@ namespace BanksOfCalradia.Source.UI
                 body.SetTextVariable("CITY", townName);
                 body.SetTextVariable("ORIGINAL", BankUtils.FmtDenars(loan.OriginalAmount));
                 body.SetTextVariable("STATUS", statusLine);
-                body.SetTextVariable("INTEREST", BankUtils.FmtPct(loan.InterestRate / 100f));
+                body.SetTextVariable("INTEREST", $"{loan.InterestRate:0.##}%");
                 body.SetTextVariable("LATEFEE", BankUtils.FmtPct(loan.LateFeeRate / 100f));
                 body.SetTextVariable("DAYS", loan.DurationDays);
                 body.SetTextVariable("SEP", SEP);
                 body.SetTextVariable("ACTION_HINT",
-                    loan.Remaining > 0.01f
+                    isActive
                         ? L.S("loanpay_action_hint_pay", "Select 'Pay this loan' to make a partial payment.")
                         : L.S("loanpay_action_hint_done", "This loan is fully paid."));
 
@@ -415,9 +396,60 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
-        // =========================================================
+        // -------------------------------------------------------------
+        // Cálculo de abatimento (versão dinâmica, igual ao Python)
+        // Baseia-se no VALOR CONTRATADO + juros totais e não usa médias fixas
+        // -------------------------------------------------------------
+        private static (float custoPago, float descontoEfetivo, float novoSaldo) CalcularAbatimentoAntecipadoPorSaldo(
+            float saldoAtual,
+            float jurosPercentTotal,
+            int diasRestantes,
+            float valorPago)
+        {
+            saldoAtual = MathF.Max(1f, saldoAtual);
+            diasRestantes = Math.Max(1, diasRestantes);
+            jurosPercentTotal = MathF.Max(0.01f, jurosPercentTotal);
+            valorPago = MathF.Max(0f, valorPago);
+
+            float fracaoJurosNoSaldo = jurosPercentTotal / (100f + jurosPercentTotal);
+            float jurosEstimadosNoSaldo = saldoAtual * fracaoJurosNoSaldo;
+
+            float tempoRestanteFrac = MathF.Log10(diasRestantes + 1f) / MathF.Log10(360f + 1f);
+            if (float.IsNaN(tempoRestanteFrac))
+                tempoRestanteFrac = 1f;
+            tempoRestanteFrac = MathF.Min(MathF.Max(tempoRestanteFrac, 0.05f), 1f);
+
+            float jurosNaoConsumidos = jurosEstimadosNoSaldo * tempoRestanteFrac;
+
+            float fracPagamento = MathF.Min(valorPago / saldoAtual, 1f);
+            float fatorBeneficio = MathF.Pow(fracPagamento, 0.8f) * MathF.Pow(tempoRestanteFrac, 0.9f);
+
+            float descontoEfetivo = jurosNaoConsumidos * fatorBeneficio * 0.85f;
+            descontoEfetivo = MathF.Clamp(descontoEfetivo, 0f, jurosEstimadosNoSaldo);
+
+            float custoNecessarioParaQuitar = saldoAtual - descontoEfetivo;
+
+            float custoPago;
+            float novoSaldo;
+            if (valorPago >= custoNecessarioParaQuitar)
+            {
+                custoPago = custoNecessarioParaQuitar;
+                novoSaldo = 0f;
+            }
+            else
+            {
+                custoPago = valorPago;
+                novoSaldo = MathF.Max(0f, saldoAtual - custoPago - descontoEfetivo);
+            }
+
+            return (custoPago, descontoEfetivo, novoSaldo);
+        }
+
+
+
+        // -------------------------------------------------------------
         // Pagamento parcial
-        // =========================================================
+        // -------------------------------------------------------------
         private static void PromptPayment()
         {
             try
@@ -432,25 +464,18 @@ namespace BanksOfCalradia.Source.UI
                 }
 
                 var contract = GetSelectedLoan();
-                if (contract == null)
+                if (contract == null || contract.Remaining <= ACTIVE_LOAN_THRESHOLD)
                 {
                     Warn(L.S("loanpay_not_found", "Contract not found or invalid."));
                     SafeSwitchToMenu("bank_loan_pay");
                     return;
                 }
 
-                if (contract.Remaining <= 0.01f)
-                {
-                    Warn(L.S("loanpay_already_paid", "This contract is already paid off."));
-                    SafeSwitchToMenu("bank_loan_detail");
-                    return;
-                }
-
-                // hero.Gold é int; alinhar tipos para MathF.Max (float,float)
                 float gold = MathF.Max(0f, (float)hero.Gold);
                 float remaining = MathF.Max(0f, contract.Remaining);
 
-                var descObj = L.T("loanpay_popup_desc", "Enter the amount to pay (balance: {BAL}, remaining: {REM}):");
+                var descObj = L.T("loanpay_popup_desc",
+                    "Enter the amount to pay (balance: {BAL}, remaining: {REM}):");
                 descObj.SetTextVariable("BAL", BankUtils.FmtDenars(gold));
                 descObj.SetTextVariable("REM", BankUtils.FmtDenars(remaining));
 
@@ -479,7 +504,7 @@ namespace BanksOfCalradia.Source.UI
 
                             if (value > hero.Gold)
                             {
-                                Warn(L.S("loanpay_not_enough_gold", "You do not have enough denars."));
+                                Warn(L.S("loanpay_not_enough_gold", "You do not have enough."));
                                 return;
                             }
 
@@ -500,6 +525,7 @@ namespace BanksOfCalradia.Source.UI
                                 return;
                             }
 
+                            // quanto o jogador realmente quer pagar agora
                             float amountToPay = MathF.Min(value, current.Remaining);
                             if (amountToPay <= 0f)
                             {
@@ -507,22 +533,33 @@ namespace BanksOfCalradia.Source.UI
                                 return;
                             }
 
-                            int debit = MathF.Round(amountToPay);
-                            if (debit <= 0)
+                            // base do cálculo: saldo atual do contrato
+                            float saldoAtual = MathF.Max(current.Remaining, 1f);
+
+                            // prazo real em dias (sem dividir por 30)
+                            int diasRestantes = Math.Max(current.DurationDays, 1);
+
+                            // cálculo de abatimento dinâmico (igual ao Python que você aprovou)
+                            var (custoPago, descontoEfetivo, novoSaldo) = CalcularAbatimentoAntecipadoPorSaldo(
+                                saldoAtual,
+                                current.InterestRate,
+                                diasRestantes,
+                                amountToPay
+                            );
+
+                            // cobramos o que realmente precisa ser cobrado
+                            int custoFinal = MathF.Round(custoPago);
+                            if (custoFinal > hero.Gold)
                             {
-                                Warn(L.S("loanpay_value_too_low", "Payment amount too low."));
+                                Warn(L.S("loanpay_not_enough_gold", "You do not have enough."));
                                 return;
                             }
 
-                            if (debit > hero.Gold)
-                            {
-                                Warn(L.S("loanpay_insufficient_after_round", "Insufficient funds after rounding."));
-                                return;
-                            }
+                            hero.ChangeHeroGold(-custoFinal);
 
-                            hero.ChangeHeroGold(-debit);
-                            current.Remaining -= debit;
-                            if (current.Remaining < 0f)
+                            // atualiza o saldo do contrato
+                            current.Remaining = novoSaldo;
+                            if (current.Remaining < ACTIVE_LOAN_THRESHOLD)
                                 current.Remaining = 0f;
 
                             try
@@ -531,16 +568,43 @@ namespace BanksOfCalradia.Source.UI
                             }
                             catch
                             {
-                                // Silêncio: não vamos crashar por causa do sync
+                                // silencioso
                             }
 
-                            var okMsg = L.T("loanpay_payment_ok", "Payment of {AMOUNT} completed successfully.");
-                            okMsg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(debit));
-                            InformationManager.DisplayMessage(
-                                new InformationMessage(okMsg.ToString(), Color.FromUint(BankUtils.UiGold))
-                            );
+                            if (descontoEfetivo > 1f)
+                            {
+                                var payMsg = L.T("loanpay_payment_ok_bonus",
+                                    "You paid {PAID} and obtained an early-payment benefit of {BONUS}!");
+                                payMsg.SetTextVariable("PAID", BankUtils.FmtDenars(custoFinal));
+                                payMsg.SetTextVariable("BONUS", BankUtils.FmtDenars(descontoEfetivo));
+                                InformationManager.DisplayMessage(
+                                    new InformationMessage(payMsg.ToString(), Color.FromUint(BankUtils.UiGold))
+                                );
 
-                            if (current.Remaining <= 0.01f)
+                                float economiaPercent = custoPago > 0f
+                                    ? (descontoEfetivo / custoPago) * 100f
+                                    : 0f;
+
+                                var econMsg = L.T("loanpay_bonus_log",
+                                    "Effective cost: {COST} ({PERCENT}% saved). New debt: {NEWDEBT}");
+                                econMsg.SetTextVariable("COST", BankUtils.FmtDenars(custoFinal));
+                                econMsg.SetTextVariable("PERCENT", economiaPercent.ToString("0.00"));
+                                econMsg.SetTextVariable("NEWDEBT", BankUtils.FmtDenars(current.Remaining));
+                                InformationManager.DisplayMessage(
+                                    new InformationMessage(econMsg.ToString(), Color.FromUint(0xFFBBDDEE))
+                                );
+                            }
+                            else
+                            {
+                                var okMsg = L.T("loanpay_payment_ok",
+                                    "Payment of {AMOUNT} completed successfully.");
+                                okMsg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(custoFinal));
+                                InformationManager.DisplayMessage(
+                                    new InformationMessage(okMsg.ToString(), Color.FromUint(BankUtils.UiGold))
+                                );
+                            }
+
+                            if (current.Remaining <= 0f)
                             {
                                 current.Remaining = 0f;
                                 InformationManager.DisplayMessage(
@@ -560,7 +624,7 @@ namespace BanksOfCalradia.Source.UI
                             Warn(msg.ToString());
                         }
                     },
-                    null // TextInquiryData espera Action (sem parâmetro) para cancelar; usar null evita o erro de delegate
+                    null
                 ));
             }
             catch (Exception e)
@@ -571,9 +635,10 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
-        // =========================================================
-        // Utilidades de menu/reflection
-        // =========================================================
+
+        // -------------------------------------------------------------
+        // Utilidades
+        // -------------------------------------------------------------
         private static void ClearMenuOptions(MenuCallbackArgs args)
         {
             try
@@ -591,7 +656,6 @@ namespace BanksOfCalradia.Source.UI
             }
             catch
             {
-                // silencioso
             }
         }
 
@@ -611,7 +675,6 @@ namespace BanksOfCalradia.Source.UI
             }
             catch
             {
-                // silencioso
             }
         }
 
@@ -624,7 +687,6 @@ namespace BanksOfCalradia.Source.UI
             }
             catch
             {
-                // silencioso
             }
         }
 

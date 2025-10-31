@@ -182,6 +182,6 @@
     <string id="bank_ledger_interest_injected" text="[BanksOfCalradia][Ledger] Intereses bancarios integrados: {AMOUNT}" />
     <string id="bank_ledger_inject_error" text="[BanksOfCalradia][Ledger] Error al inyectar intereses: {ERROR}" />
     <string id="bank_ledger_removed" text="[BanksOfCalradia][Ledger] Asiento eliminado {ID}" />
-    <string id="loan_installment_paid_icon" text="Cuota pagada: -{AMOUNT} {ICON}" />
+    <string id="loan_installment_paid_icon" text="Cuota pagada: " />
   </strings>
 </base>

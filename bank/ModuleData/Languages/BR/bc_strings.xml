@@ -48,7 +48,7 @@
 		<string id="bank_loan_req_warn_credit" text="Atenção: o valor solicitado ({REQ}) excede seu crédito disponível ({CREDIT})." />
 
 		<string id="bank_loan_req_edit_amount" text="Alterar valor solicitado" />
-		<string id="bank_loan_req_edit_installments" text="Alterar número de parcelas (1–240)" />
+		<string id="bank_loan_req_edit_installments" text="Alterar número de parcelas (1–360)" />
 		<string id="bank_loan_req_confirm" text="Confirmar empréstimo" />
 		<string id="bank_loan_req_back" text="Voltar" />
 
@@ -56,7 +56,7 @@
 		<string id="bank_loan_popup_amount_desc" text="Digite o valor desejado:" />
 		<string id="bank_loan_popup_amount_invalid" text="Valor inválido." />
 		<string id="bank_loan_popup_inst_title" text="Número de parcelas" />
-		<string id="bank_loan_popup_inst_desc" text="Digite a quantidade de parcelas (1–240):" />
+		<string id="bank_loan_popup_inst_desc" text="Digite a quantidade de parcelas (1–360):" />
 		<string id="bank_loan_popup_inst_invalid" text="Número inválido." />
 		<string id="bank_popup_confirm" text="Confirmar" />
 		<string id="bank_popup_cancel" text="Cancelar" />
@@ -163,7 +163,13 @@
 		<string id="bank_ledger_interest_injected" text="[BanksOfCalradia][Ledger] Juros bancários integrados: {AMOUNT}" />
 		<string id="bank_ledger_inject_error" text="[BanksOfCalradia][Ledger] Erro ao injetar juros: {ERROR}" />
 		<string id="bank_ledger_removed" text="[BanksOfCalradia][Ledger] Lançamento removido {ID}" />
-		<string id="loan_installment_paid_icon" text="Parcela paga: -{AMOUNT} {ICON}" />
+		<string id="bank_loan_installment_paid_icon" text="Parcela paga:" />
+
+		<string id="bank_loanpay_payment_ok_bonus" text="Você pagou {PAID} e obteve um benefício de pagamento antecipado de {BONUS}!" />
+		<string id="bank_loanpay_bonus_log" text="Custo efetivo: {COST} ({PERCENT}% de economia). Nova dívida: {NEWDEBT}" />
+		
+		<string id="bank_loan_confirm_popup_title" text="Confirmar Contrato de Empréstimo" />
+		<string id="bank_loan_confirm_popup_text" text="Prévia do Contrato de Empréstimo — Banco de {CITY}&#10;&#10;• Valor solicitado: {AMOUNT}&#10;• Parcelas: {INSTALLMENTS}x&#10;• Taxa de juros: {INTEREST}&#10;• Multa diária: {LATEFEE}&#10;• Total a pagar: {TOTAL}&#10;• Valor da parcela: {INSTALLMENT}&#10;&#10;Deseja confirmar este contrato?" />
 
 	</strings>
 </base>

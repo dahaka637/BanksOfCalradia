@@ -255,31 +255,31 @@ namespace BanksOfCalradia.Source.Systems.Processing
             msg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(loan.Remaining));
             return msg.ToString();
         }
-
         private static void ShowPaymentInfo(string msg, int paidAmount = 0)
         {
             if (!GAMEPLAY_MESSAGES) return;
 
-            // 🔹 Primeira linha — estilo nativo com ícone oficial e tradução dinâmica
             if (paidAmount > 0)
             {
-                string coinIcon = "{=!}<img src=\"General\\Icons\\Coin@2x\" extend=\"8\">";
-                var paidMsg = L.T("loan_installment_paid_icon", "Installment paid: -{AMOUNT} {ICON}");
-                paidMsg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(paidAmount));
-                paidMsg.SetTextVariable("ICON", coinIcon);
+                // começa com {=!} para habilitar o markup
+                string icon = "<img src=\"General\\Icons\\Coin@2x\" extend=\"8\">";
+                // aqui vai SEM o "bank_"
+                string prefix = L.S("loan_installment_paid_icon", "Installment paid:");
+                string paidLine = "{=!}" + prefix + " -" + BankUtils.FmtDenars(paidAmount) + " " + icon;
 
                 InformationManager.DisplayMessage(new InformationMessage(
-                    paidMsg.ToString(),
+                    paidLine,
                     Color.FromUint(0xFFEEEEEE)
                 ));
             }
 
-            // 🔹 Segunda linha — detalhes complementares (tradução já aplicada no caller)
             InformationManager.DisplayMessage(new InformationMessage(
                 msg,
                 Color.FromUint(0xFFEEEEEE)
             ));
         }
+
+
 
 
         private static void ShowPenalty(string msg)

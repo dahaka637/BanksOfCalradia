@@ -105,22 +105,30 @@ namespace BanksOfCalradia.Source.UI
         private static float GetDynamicWithdrawFee(Settlement settlement)
         {
             if (settlement?.Town == null)
-                return 0.05f; // fallback 5%
+                return 0.035f; // fallback 3.5 %
 
             float prosperity = settlement.Town.Prosperity;
             float security = settlement.Town.Security;
             float loyalty = settlement.Town.Loyalty;
 
+            // Fatores normalizados (quanto menor, maior o risco)
             float pFactor = MathF.Clamp(1f - prosperity / 12000f, 0f, 1f);
             float sFactor = MathF.Clamp(1f - security / 100f, 0f, 1f);
             float lFactor = MathF.Clamp(1f - loyalty / 100f, 0f, 1f);
 
-            float baseFee = 0.035f;
-            float riskBonus = (pFactor * 0.4f + sFactor * 0.4f + lFactor * 0.2f) * 0.07f;
+            // Base reduzida para suavizar todas as cidades
+            float baseFee = 0.028f;
 
-            float dynamicFee = MathF.Clamp(baseFee + riskBonus, 0.02f, 0.13f);
+            // Bônus de risco com curva logarítmica: reduz impacto tanto no topo quanto na base
+            float combined = (pFactor * 0.4f + sFactor * 0.4f + lFactor * 0.2f);
+            float riskBonus = MathF.Log10(1f + combined * 9f) * 0.035f;
+
+            // Clamp suavizado: 1.8 % a 7.5 %
+            float dynamicFee = MathF.Clamp(baseFee + riskBonus, 0.018f, 0.075f);
+
             return dynamicFee;
         }
+
 
         // ============================================
         // Register savings menus

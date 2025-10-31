@@ -111,7 +111,7 @@ namespace BanksOfCalradia.Source.UI
             starter.AddGameMenuOption(
                 "bank_loan_request",
                 "loan_inst_edit",
-                L.S("loan_req_edit_installments", "Change number of installments (1–240)"),
+                L.S("loan_req_edit_installments", "Change number of installments (1–360)"),
                 args =>
                 {
                     args.optionLeaveType = GameMenuOption.LeaveType.Continue;
@@ -336,9 +336,8 @@ namespace BanksOfCalradia.Source.UI
                     return;
                 }
 
-                // Segurança extra: cap de 240 parcelas
-                int parcelas = ClampInt(_sim.Installments, 1, 240);
-
+                // Segurança: limitar a 360 parcelas
+                int parcelas = ClampInt(_sim.Installments, 1, 360);
                 var sim = CalcLoanForecastParametric(prosperity, renown, parcelas);
 
                 float totalDebt = GetPlayerTotalDebt(behavior, playerId);
@@ -350,45 +349,96 @@ namespace BanksOfCalradia.Source.UI
                     return;
                 }
 
-                var storage = behavior.GetStorage();
-                if (storage == null)
-                {
-                    Warn(L.S("loan_confirm_storage_missing", "Error: bank storage not available."));
-                    return;
-                }
+                // 🔹 Montar o resumo do contrato para exibição
+                float jurosPct = sim.totalInterestPct;
+                float multa = sim.lateFeePct;
+                float valorTotal = _sim.RequestedAmount * (1f + jurosPct / 100f);
+                float valorParcela = valorTotal / parcelas;
 
-                int durationDays = parcelas;
+                var textObj = L.T("loan_confirm_popup_text",
+                    "Loan Contract Preview — Bank of {CITY}\n\n" +
+                    "• Amount requested: {AMOUNT}\n" +
+                    "• Installments: {INSTALLMENTS}x\n" +
+                    "• Interest rate: {INTEREST}\n" +
+                    "• Daily late fee: {LATEFEE}\n" +
+                    "• Total to repay: {TOTAL}\n" +
+                    "• Installment value: {INSTALLMENT}\n\n" +
+                    "Do you confirm this contract?");
+                textObj.SetTextVariable("CITY", settlement.Name?.ToString() ?? "City");
+                textObj.SetTextVariable("AMOUNT", BankUtils.FmtDenars(_sim.RequestedAmount));
+                textObj.SetTextVariable("INSTALLMENTS", parcelas);
+                textObj.SetTextVariable("INTEREST", BankUtils.FmtPct(jurosPct / 100f));
+                textObj.SetTextVariable("LATEFEE", BankUtils.FmtPct(multa / 100f));
+                textObj.SetTextVariable("TOTAL", BankUtils.FmtDenars(valorTotal));
+                textObj.SetTextVariable("INSTALLMENT", BankUtils.FmtDenars(valorParcela));
 
-                storage.CreateLoan(
-                    playerId,
-                    townId,
-                    _sim.RequestedAmount,
-                    sim.totalInterestPct,
-                    sim.lateFeePct,
-                    durationDays
+                // 🔹 Exibir popup de confirmação antes de criar o contrato
+                InformationManager.ShowInquiry(
+                    new InquiryData(
+                        L.S("loan_confirm_popup_title", "Confirm Loan Contract"),
+                        textObj.ToString(),
+                        true,  // mostrar botão confirmar
+                        true,  // mostrar botão cancelar
+                        L.S("popup_confirm", "Confirm"),
+                        L.S("popup_cancel", "Cancel"),
+                        () =>
+                        {
+                            try
+                            {
+                                var storage = behavior.GetStorage();
+                                if (storage == null)
+                                {
+                                    Warn(L.S("loan_confirm_storage_missing", "Error: bank storage not available."));
+                                    return;
+                                }
+
+                                int durationDays = parcelas;
+
+                                // Criar o contrato de fato
+                                storage.CreateLoan(
+                                    playerId,
+                                    townId,
+                                    _sim.RequestedAmount,
+                                    sim.totalInterestPct,
+                                    sim.lateFeePct,
+                                    durationDays
+                                );
+
+                                hero.ChangeHeroGold(_sim.RequestedAmount);
+
+                                var okMsg = L.T("loan_confirm_ok",
+                                    "Loan of {AMOUNT} successfully created.\nTotal interest rate: {INTEREST}.");
+                                okMsg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(_sim.RequestedAmount));
+                                okMsg.SetTextVariable("INTEREST", BankUtils.FmtPct(sim.totalInterestPct / 100f));
+
+                                InformationManager.DisplayMessage(new InformationMessage(
+                                    okMsg.ToString(),
+                                    Color.FromUint(BankUtils.UiGold)
+                                ));
+
+                                ClearSimulation();
+                                SafeSwitchToMenu("bank_loanmenu");
+                            }
+                            catch (Exception ex)
+                            {
+                                Warn(L.S("loan_confirm_error", "Error registering the loan: ") + ex.Message);
+                            }
+                        },
+                        () =>
+                        {
+                            // Cancelar — apenas retorna ao menu sem alterações
+                            SafeSwitchToMenu("bank_loan_request");
+                        }
+                    ),
+                    true
                 );
-
-                // Entrega o dinheiro ao jogador
-                hero.ChangeHeroGold(_sim.RequestedAmount);
-
-                var okMsg = L.T("loan_confirm_ok",
-                    "Loan of {AMOUNT} successfully created.\nTotal interest rate: {INTEREST}.");
-                okMsg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(_sim.RequestedAmount));
-                okMsg.SetTextVariable("INTEREST", BankUtils.FmtPct(sim.totalInterestPct / 100f));
-
-                InformationManager.DisplayMessage(new InformationMessage(
-                    okMsg.ToString(),
-                    Color.FromUint(BankUtils.UiGold)
-                ));
-
-                ClearSimulation();
-                SafeSwitchToMenu("bank_loanmenu");
             }
             catch (Exception e)
             {
                 Warn(L.S("loan_confirm_error", "Error registering the loan: ") + e.Message);
             }
         }
+
 
         // ------------------------------------------------------------
         // Soma total de dívidas do jogador
@@ -445,7 +495,7 @@ namespace BanksOfCalradia.Source.UI
         {
             InformationManager.ShowTextInquiry(new TextInquiryData(
                 L.S("loan_popup_inst_title", "Installments"),
-                L.S("loan_popup_inst_desc", "Enter the number of installments (1–240):"),
+                L.S("loan_popup_inst_desc", "Enter the number of installments (1–360):"),
                 isAffirmativeOptionShown: true,
                 isNegativeOptionShown: true,
                 affirmativeText: L.S("popup_confirm", "Confirm"),
@@ -458,7 +508,7 @@ namespace BanksOfCalradia.Source.UI
                         return;
                     }
 
-                    _sim.Installments = ClampInt(n, 1, 240);
+                    _sim.Installments = ClampInt(n, 1, 360);
                     SafeSwitchToMenu("bank_loan_request");
                 },
                 negativeAction: null
@@ -494,7 +544,7 @@ namespace BanksOfCalradia.Source.UI
             const float MULTA_MAX = 5.0f;
 
             // ------------------ Segurança ------------------
-            installments = MathF.Min(MathF.Max(installments, 1), 240);
+            installments = MathF.Min(MathF.Max(installments, 1), 360);
 
             prosperity = MathF.Max(prosperity, 1f);
             renown = MathF.Max(renown, 1f);

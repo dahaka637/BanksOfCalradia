@@ -55,7 +55,7 @@
     <string id="bank_loan_req_warn_credit" text="Attention: the requested amount ({REQ}) exceeds your available credit ({CREDIT})." />
 
     <string id="bank_loan_req_edit_amount" text="Change requested amount" />
-    <string id="bank_loan_req_edit_installments" text="Change number of installments (1–240)" />
+    <string id="bank_loan_req_edit_installments" text="Change number of installments (1–360)" />
     <string id="bank_loan_req_confirm" text="Confirm loan" />
     <string id="bank_loan_req_back" text="Back" />
 
@@ -64,7 +64,7 @@
     <string id="bank_loan_popup_amount_desc" text="Enter the desired amount:" />
     <string id="bank_loan_popup_amount_invalid" text="Invalid amount." />
     <string id="bank_loan_popup_inst_title" text="Number of installments" />
-    <string id="bank_loan_popup_inst_desc" text="Enter the number of installments (1–240):" />
+    <string id="bank_loan_popup_inst_desc" text="Enter the number of installments (1–360):" />
     <string id="bank_loan_popup_inst_invalid" text="Invalid number." />
     <string id="bank_popup_confirm" text="Confirm" />
     <string id="bank_popup_cancel" text="Cancel" />
@@ -182,6 +182,15 @@
     <string id="bank_ledger_interest_injected" text="[BanksOfCalradia][Ledger] Bank interests injected: {AMOUNT}" />
     <string id="bank_ledger_inject_error" text="[BanksOfCalradia][Ledger] Error while injecting interests: {ERROR}" />
     <string id="bank_ledger_removed" text="[BanksOfCalradia][Ledger] Entry removed {ID}" />
-    <string id="loan_installment_paid_icon" text="Installment paid: -{AMOUNT} {ICON}" />
+
+	<string id="bank_loan_installment_paid_icon" text="Installment paid:" />
+
+	<string id="bank_loanpay_payment_ok_bonus" text="You paid {PAID} and received an early payment benefit of {BONUS}!" />
+	<string id="bank_loanpay_bonus_log" text="Effective cost: {COST} ({PERCENT}% saved). New debt: {NEWDEBT}" />
+
+	<string id="bank_loan_confirm_popup_title" text="Confirm Loan Contract" />
+
+	<string id="bank_loan_confirm_popup_text" text="Loan Contract Preview — Bank of {CITY}&#10;&#10;• Amount requested: {AMOUNT}&#10;• Installments: {INSTALLMENTS}x&#10;• Interest rate: {INTEREST}&#10;• Daily late fee: {LATEFEE}&#10;• Total to repay: {TOTAL}&#10;• Installment value: {INSTALLMENT}&#10;&#10;Do you confirm this contract?" />
+
   </strings>
 </base>
