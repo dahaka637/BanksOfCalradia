@@ -1,16 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<base xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      xmlns:xsd="http://www.w3.org/2001/XMLSchema" type="string">
+<base xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" type="string">
   <tags>
-    <tag language="ES" />
+    <tag language="SP" />
   </tags>
   <strings>
-    <!-- Inicialización -->
     <string id="bank_mod_boot_ok" text="[BanksOfCalradia] Mod cargado correctamente." />
     <string id="bank_mod_init_ok" text="[BanksOfCalradia] Sistemas principales inicializados correctamente." />
-    <string id="bank_data_load_fail" text="[BanksOfCalradia] Error al cargar los datos guardados. Creando una nueva instancia." />
+    <string id="bank_data_load_fail" text="[BanksOfCalradia] Error al cargar los datos guardados. Creando nueva instancia." />
 
-    <!-- Menú principal -->
     <string id="bank_visit_option" text="Visitar el Banco" />
     <string id="bank_open_savings" text="Acceder a la Cuenta de Ahorros" />
     <string id="bank_open_loans" text="Acceder a los Servicios de Préstamos" />
@@ -18,12 +15,50 @@
     <string id="bank_default_city" text="Ciudad" />
     <string id="bank_visit_label" text="Visitar el Banco de {CITY}" />
 
-    <!-- Texto del menú -->
-    <string id="bank_menu_text"
-            text="Banco de {CITY}\n\nBienvenido al banco de la ciudad.\n\nElige una opción a continuación para gestionar tus recursos:\n\n- Acceder a la Cuenta de Ahorros\n- Servicios de Préstamos\n- Regresar a la Ciudad" />
+    <string id="bank_menu_text" text="Banco de {CITY}&#10;&#10;Bienvenido al banco de la ciudad.&#10;&#10;Elige una opción a continuación para gestionar tus recursos:&#10;&#10;- Acceder a la Cuenta de Ahorros&#10;- Servicios de Préstamos&#10;- Volver a la Ciudad" />
 
-    <!-- Experiencia de Comercio -->
-    <string id="bank_trade_xp_gain" text="+{AMOUNT} XP de Comercio obtenidos de las ganancias bancarias." />
+    <string id="bank_trade_xp_gain" text="+{AMOUNT} XP de Comercio obtenidos por beneficios bancarios." />
     <string id="bank_trade_xp_error" text="[BanksOfCalradia][Error XP Comercio] {ERROR}" />
+
+    <string id="bank_finance_interest" text="Rendimientos bancarios" />
+    <string id="bank_finance_interest_city" text="Rendimientos bancarios ({CITY})" />
+
+    <string id="bank_loan_payment_city" text="Pago de préstamo ({CITY})" />
+
+    <string id="bank_loan_processor_error" text="[BanksOfCalradia][Préstamos] Error en el procesamiento diario: {ERROR}" />
+    <string id="bank_loan_installment_paid" text="Cuota pagada: -{AMOUNT}" />
+    <string id="bank_loan_payment_info" text="Préstamo del banco de {CITY}: deuda restante {AMOUNT} | Cuotas restantes: {INSTALLMENTS}" />
+    <string id="bank_loan_partial_payment" text="Pago parcial: {PAID} | Restante antes de multa: {REMAINING}" />
+    <string id="bank_loan_penalty_applied" text="Multa por retraso de {RATE} aplicada. Nuevo saldo: {AMOUNT}" />
+    <string id="bank_loan_penalty_frozen" text="Multa diaria congelada tras superar 10× el valor contratado con intereses." />
+    <string id="bank_loan_fully_paid" text="Préstamo completamente pagado. Contrato eliminado." />
+    <string id="bank_loan_process_summary" text="[Préstamos] Procesados: {TOTAL} | Completos: {FULL} | Parciales: {PARTIAL} | Multas: {PENALTIES} | Pagados hoy: {PAIDTODAY}" />
+    <string id="bank_loan_city_unknown" text="Ciudad desconocida" />
+
+    <string id="bank_loan_menu_loading" text="Cargando información del préstamo bancario..." />
+    <string id="bank_loan_menu_title" text="Banco de {CITY} — Crédito" />
+    <string id="bank_loan_menu_body" text="Banco de {CITY} — Crédito&#10;&#10;• Interés estimado (12x): {INTEREST}&#10;• Multa diaria por retraso: {LATEFEE}&#10;• Crédito disponible: {CREDIT}&#10;• Deuda activa: {DEBT}&#10;&#10;{SEP}&#10;&#10;Selecciona una opción a continuación." />
+    <string id="bank_loan_menu_option_request" text="Solicitar préstamo" />
+    <string id="bank_loan_menu_option_pay" text="Pagar préstamos" />
+    <string id="bank_loan_menu_option_back" text="Volver al Banco" />
+
+    <string id="bank_loan_req_loading" text="Cargando simulación de préstamo..." />
+    <string id="bank_loan_req_title" text="Solicitar Préstamo — {CITY}" />
+    <string id="bank_loan_req_body" text="Solicitud de Préstamo — Banco de {CITY}&#10;&#10;Parámetros del contrato:&#10;• Monto solicitado: {REQ}&#10;• Cuotas: {INST}&#10;&#10;{SEP}&#10;&#10;Simulación actual:&#10;• Crédito disponible: {CREDIT}&#10;• Tasa total de interés: {INTEREST}&#10;• Total con intereses: {TOTAL}&#10;• Valor por cuota: {INSTALLMENT}&#10;• Multa diaria por retraso: {LATEFEE}{WARN}" />
+    <string id="bank_loan_req_warn_credit" text="Atención: el monto solicitado ({REQ}) supera tu crédito disponible ({CREDIT})." />
+
+    <string id="bank_loan_req_edit_amount" text="Cambiar monto solicitado" />
+    <string id="bank_loan_req_edit_installments" text="Cambiar número de cuotas (1–240)" />
+    <string id="bank_loan_req_confirm" text="Confirmar préstamo" />
+    <string id="bank_loan_req_back" text="Volver" />
+
+    <string id="bank_loan_popup_amount_title" text="Monto solicitado" />
+    <string id="bank_loan_popup_amount_desc" text="Introduce el monto deseado:" />
+    <string id="bank_loan_popup_amount_invalid" text="Monto inválido." />
+    <string id="bank_loan_popup_inst_title" text="Número de cuotas" />
+    <string id="bank_loan_popup_inst_desc" text="Introduce la cantidad de cuotas (1–240):" />
+    <string id="bank_loan_popup_inst_invalid" text="Número inválido." />
+    <string id="bank_popup_confirm" text="Confirmar" />
+    <string id="bank_popup_cancel" text="Cancelar" />
   </strings>
 </base>

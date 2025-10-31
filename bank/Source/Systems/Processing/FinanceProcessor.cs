@@ -83,7 +83,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
         }
 
         // =========================================================
-        // Cálculo de juros e previsão de prosperidade
+        // Cálculo de juros e previsão de prosperidade (versão calibrada)
         // =========================================================
         internal void AddBankInterestToExplainedNumber(
             Clan clan,
@@ -98,18 +98,18 @@ namespace BanksOfCalradia.Source.Systems.Processing
             var behavior = Campaign.Current?.GetCampaignBehavior<BankCampaignBehavior>();
             if (behavior == null)
             {
-                #if DEBUG
+#if DEBUG
                 DebugMsg("[BanksOfCalradia][FinanceModel] BankCampaignBehavior not found.");
-                #endif
+#endif
                 return;
             }
 
             var storage = behavior.GetStorage();
             if (storage == null)
             {
-                #if DEBUG
+#if DEBUG
                 DebugMsg("[BanksOfCalradia][FinanceModel] Storage is null.");
-                #endif
+#endif
                 return;
             }
 
@@ -139,20 +139,54 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 float prosperity = settlement.Town.Prosperity;
                 string townName = settlement.Name.ToString();
 
-                // -----------------------------------------------------
-                // Etapa 1 — Taxas baseadas na prosperidade
-                // -----------------------------------------------------
-                const float fator = 400f;
+                // ============================================================
+                // 💹 ALGORITMO CALIBRADO (versão C# do simulador Python)
+                // ============================================================
+                const float fator = 350f;
                 const float prosperidadeBase = 5000f;
+                const float prosperidadeAlta = 6000f;
+                const float prosperidadeMax = 10000f;
+                const float CICLO_DIAS = 120f;
 
-                // Mantém a mesma lógica geral do seu simulador
-                float rawSuavizador = prosperidadeBase / MathF.Max(1f, prosperity);
-                float taxaAnual = prosperity / fator;
-                float taxaDiaria = taxaAnual / 120f; // ciclo econômico de 120 dias
+                prosperity = MathF.Max(prosperity, 1f);
 
-                // -----------------------------------------------------
-                // Etapa 2 — Rendimento diário
-                // -----------------------------------------------------
+                // --- Fator suavizador ---
+                float rawSuavizador = prosperidadeBase / prosperity;
+                float fatorSuavizador = 0.7f + (rawSuavizador * 0.7f);
+
+                // --- Ajuste de pobreza ---
+                float bonus = 0f;
+                if (prosperity < prosperidadeBase)
+                {
+                    float ajustePobreza = MathF.Pow((prosperidadeBase - prosperity) / prosperidadeBase, 1.3f);
+                    bonus = ajustePobreza * 3f;
+                }
+
+                // --- Ajuste de riqueza ---
+                float ajusteRiqueza = 0f;
+                if (prosperity > prosperidadeAlta)
+                {
+                    float excesso = (prosperity - prosperidadeAlta) / (prosperidadeMax - prosperidadeAlta);
+                    excesso = MathF.Clamp(excesso, 0f, 1f);
+                    ajusteRiqueza = MathF.Pow(excesso, 1.6f) * 5.5f;
+                    // ➕ leve suavização extra para reduzir juros de cidades ricas
+                    ajusteRiqueza *= 1.15f;
+                }
+
+                // --- Cálculo das taxas ---
+                float taxaAnualBruta = (prosperity / fator) + bonus - ajusteRiqueza;
+
+                // ➖ leve redução global nas cidades acima da média
+                float taxaAnual = taxaAnualBruta;
+                if (prosperity > prosperidadeBase)
+                {
+                    float suavReducao = 1f - ((prosperity - prosperidadeBase) / prosperidadeMax) * 0.1f; // até -10 %
+                    taxaAnual = taxaAnualBruta * MathF.Max(0.85f, suavReducao);
+                }
+
+                float taxaDiaria = taxaAnual / CICLO_DIAS;
+
+                // --- Rendimento diário ---
                 float rendimentoDia = acc.Amount * (taxaDiaria / 100f);
                 int ganhoInteiro = MathF.Round(rendimentoDia);
 
@@ -163,18 +197,25 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 if (ganhoInteiro < 1)
                     continue;
 
-                // -----------------------------------------------------
-                // Etapa 3 — Previsão de prosperidade (informativo)
-                // -----------------------------------------------------
+                // --- Ganho de prosperidade (forecast informativo) ---
                 float ganhoBase = MathF.Pow(acc.Amount / 1_000_000f, 0.55f);
                 float fatorProsperidade = MathF.Pow(6000f / (prosperity + 3000f), 0.3f);
-                float ganhoProsperidadePrevisto = MathF.Round(ganhoBase * fatorProsperidade * rawSuavizador, 2);
+
+                float ganhoProsperidadePrevisto = MathF.Round(
+                    ganhoBase
+                    * fatorProsperidade
+                    * fatorSuavizador
+                    * 1.5f                      // ⚡ Boost global +50%
+                    * (1f + bonus * 0.05f)
+                    * (1f - ajusteRiqueza * 0.03f),
+                    4
+                );
 
                 totalGoldGain += ganhoInteiro;
                 totalProsperityForecast += ganhoProsperidadePrevisto;
 
                 // -----------------------------------------------------
-                // Exibição detalhada por cidade (ALT)
+                // Exibição detalhada por cidade (modo ALT)
                 // -----------------------------------------------------
                 if (includeDetails && includeDescriptions && ganhoInteiro > 0)
                 {
@@ -192,9 +233,10 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 goldChange.Add(MathF.Round(totalGoldGain), consolidatedLabel);
             }
 
-            // totalProsperityForecast está disponível caso futuramente
-            // você queira exibir num painel próprio ou log não intrusivo.
+            // totalProsperityForecast permanece disponível para uso futuro
         }
+
+
 
         // =========================================================
         // Visualização das parcelas de empréstimos (modo detalhado)

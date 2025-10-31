@@ -39,7 +39,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
             }
             catch (Exception ex)
             {
-#if DEBUG
+                #if DEBUG
                 var msg = L.T("prosperity_model_error", "[BanksOfCalradia] Prosperity model error: {ERROR}");
                 msg.SetTextVariable("ERROR", ex.Message);
 
@@ -47,7 +47,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
                     msg.ToString(),
                     Color.FromUint(0xFFFF5555)
                 ));
-#endif
+                #endif
             }
 
             return result;
@@ -83,14 +83,54 @@ namespace BanksOfCalradia.Source.Systems.Processing
                     if (acc.Amount <= 0.01f || acc.TownId != town.Settlement.StringId)
                         continue;
 
-                    float prosperity = town.Prosperity;
+                    float prosperity = MathF.Max(town.Prosperity, 1f);
 
-                    // Mesmo algoritmo do BankFinanceProcessor
+                    // ============================================================
+                    // 💹 NOVO ALGORITMO CALIBRADO (versão ajustada – mais prosperidade, menos juros em cidades ricas)
+                    // ============================================================
+                    const float prosperidadeBase = 5000f;
+                    const float prosperidadeAlta = 6000f;
+                    const float prosperidadeMax = 10000f;
+
+                    // --- Fator suavizador ---
+                    float rawSuavizador = prosperidadeBase / prosperity;
+                    float fatorSuavizador = 0.7f + (rawSuavizador * 0.7f);
+
+                    // --- Bônus de pobreza ---
+                    float bonus = 0f;
+                    if (prosperity < prosperidadeBase)
+                    {
+                        float ajustePobreza = MathF.Pow((prosperidadeBase - prosperity) / prosperidadeBase, 1.3f);
+                        bonus = ajustePobreza * 3f;
+                    }
+
+                    // --- Ajuste de riqueza ---
+                    float ajusteRiqueza = 0f;
+                    if (prosperity > prosperidadeAlta)
+                    {
+                        float excesso = (prosperity - prosperidadeAlta) / (prosperidadeMax - prosperidadeAlta);
+                        excesso = MathF.Clamp(excesso, 0f, 1f);
+                        ajusteRiqueza = MathF.Pow(excesso, 1.6f) * 5.5f;
+                        // ➕ leve suavização extra para reduzir o efeito de cidades ricas
+                        ajusteRiqueza *= 1.15f;
+                    }
+
+                    // --- Ganho de prosperidade diário ---
                     float ganhoBase = MathF.Pow(acc.Amount / 1_000_000f, 0.55f);
-                    float fatorProsperidade = MathF.Pow(7000f / (prosperity + 3000f), 0.3f);
-                    float ganhoPrevisto = MathF.Round(ganhoBase * fatorProsperidade, 2);
+                    float fatorProsperidade = MathF.Pow(6000f / (prosperity + 3000f), 0.3f);
 
-                    totalGain += ganhoPrevisto;
+                    // ⚡ Boost global de +50% em prosperidade
+                    float ganhoPrevisto = MathF.Round(
+                        ganhoBase
+                        * fatorProsperidade
+                        * fatorSuavizador
+                        * 1.5f
+                        * (1f + bonus * 0.05f)
+                        * (1f - ajusteRiqueza * 0.03f),
+                        4
+                    );
+
+                    totalGain += MathF.Max(0f, ganhoPrevisto);
                 }
             }
 
@@ -105,7 +145,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
                     var dbg = L.T("prosperity_bank_debug",
                         "[BanksOfCalradia][DEBUG] {TOWN}: +{GAIN} prosperity/day (bank forecast)");
                     dbg.SetTextVariable("TOWN", town.Name?.ToString() ?? L.S("default_city", "City"));
-                    dbg.SetTextVariable("GAIN", totalGain.ToString("0.00"));
+                    dbg.SetTextVariable("GAIN", totalGain.ToString("0.0000"));
 
                     InformationManager.DisplayMessage(new InformationMessage(
                         dbg.ToString(),
@@ -115,5 +155,6 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 #endif
             }
         }
+
     }
 }

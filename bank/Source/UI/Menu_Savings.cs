@@ -180,9 +180,69 @@ namespace BanksOfCalradia.Source.UI
                 string townName = settlement?.Name?.ToString() ?? L.S("default_city", "City");
                 float prosperity = settlement?.Town?.Prosperity ?? 0f;
 
-                const float fator = 400f;
-                float interestAA = prosperity / fator;
-                float interestAD = interestAA / 120f;
+                // ============================================================
+                // 💹 Novo cálculo calibrado – mais prosperidade, menos juros em cidades ricas
+                // ============================================================
+                const float fator = 350f;
+                const float prosperidadeBase = 5000f;
+                const float prosperidadeAlta = 6000f;
+                const float prosperidadeMax = 10000f;
+                const float CICLO_DIAS = 120f;
+
+                prosperity = MathF.Max(prosperity, 1f);
+
+                // --- Fator suavizador ---
+                float rawSuavizador = prosperidadeBase / prosperity;
+                float fatorSuavizador = 0.7f + (rawSuavizador * 0.7f);
+
+                // --- Ajuste de pobreza ---
+                float bonus = 0f;
+                if (prosperity < prosperidadeBase)
+                {
+                    float ajustePobreza = MathF.Pow((prosperidadeBase - prosperity) / prosperidadeBase, 1.3f);
+                    bonus = ajustePobreza * 3f;
+                }
+
+                // --- Ajuste de riqueza ---
+                float ajusteRiqueza = 0f;
+                if (prosperity > prosperidadeAlta)
+                {
+                    float excesso = (prosperity - prosperidadeAlta) / (prosperidadeMax - prosperidadeAlta);
+                    excesso = MathF.Clamp(excesso, 0f, 1f);
+                    ajusteRiqueza = MathF.Pow(excesso, 1.6f) * 5.5f;
+                    // ➕ leve suavização extra para reduzir juros de cidades ricas
+                    ajusteRiqueza *= 1.15f;
+                }
+
+                // --- Cálculo das taxas ---
+                float taxaAnualBruta = (prosperity / fator) + bonus - ajusteRiqueza;
+
+                // ➖ leve redução global nas cidades acima da média
+                float taxaAnual = taxaAnualBruta;
+                if (prosperity > prosperidadeBase)
+                {
+                    float suavReducao = 1f - ((prosperity - prosperidadeBase) / prosperidadeMax) * 0.1f; // até -10 %
+                    taxaAnual = taxaAnualBruta * MathF.Max(0.85f, suavReducao);
+                }
+
+                float taxaDiaria = taxaAnual / CICLO_DIAS;
+
+                // --- Simulação de rendimento (para exibição no painel) ---
+                float rendimentoDia = 10_000f * (taxaDiaria / 100f); // base simbólica para exibição
+                float rendimentoTotal = rendimentoDia * CICLO_DIAS;
+                float ganhoProsperidadeDia = MathF.Round(
+                    MathF.Pow(10_000f / 1_000_000f, 0.55f)
+                    * MathF.Pow(6000f / (prosperity + 3000f), 0.3f)
+                    * fatorSuavizador
+                    * 1.5f
+                    * (1f + bonus * 0.05f)
+                    * (1f - ajusteRiqueza * 0.03f),
+                    4
+                );
+
+                // ============================================================
+                // 🔹 Dados e interface (inalterados)
+                // ============================================================
                 float withdrawRate = GetDynamicWithdrawFee(settlement);
 
                 var acct = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
@@ -194,12 +254,14 @@ namespace BanksOfCalradia.Source.UI
                     "• Annual interest rate: {INTEREST_AA}\n" +
                     "• Daily interest rate: {INTEREST_AD}\n" +
                     "• Local prosperity: {PROSPERITY}\n" +
+                    "• Prosperity gain (forecast): +{GAIN}/day\n" +
                     "• Withdraw fee: {WITHDRAW_FEE}\n" +
                     "• Current balance: {BALANCE}\n");
                 body.SetTextVariable("CITY", townName);
-                body.SetTextVariable("INTEREST_AA", BankUtils.FmtPct(interestAA / 100f));
-                body.SetTextVariable("INTEREST_AD", BankUtils.FmtPct(interestAD / 100f));
+                body.SetTextVariable("INTEREST_AA", BankUtils.FmtPct(taxaAnual / 100f));
+                body.SetTextVariable("INTEREST_AD", BankUtils.FmtPct(taxaDiaria / 100f));
                 body.SetTextVariable("PROSPERITY", prosperity.ToString("0"));
+                body.SetTextVariable("GAIN", ganhoProsperidadeDia.ToString("0.0000"));
                 body.SetTextVariable("WITHDRAW_FEE", BankUtils.FmtPct(withdrawRate));
                 body.SetTextVariable("BALANCE", BankUtils.FmtDenars(balance));
 
@@ -214,6 +276,8 @@ namespace BanksOfCalradia.Source.UI
                 ));
             }
         }
+
+
 
         // ============================================
         // Deposit submenu (static buttons)

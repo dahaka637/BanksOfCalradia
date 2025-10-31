@@ -466,12 +466,12 @@ namespace BanksOfCalradia.Source.UI
         }
 
         // ------------------------------------------------------------
-        // Algoritmo paramétrico (modelo calibrado)
+        // Novo algoritmo paramétrico de empréstimo (versão calibrada)
         // ------------------------------------------------------------
         private static (float maxLoan, float totalInterestPct, float totalWithInterest, float installmentValue, float lateFeePct)
             CalcLoanForecastParametric(float prosperity, float renown, int installments)
         {
-            // Pesos e constantes (os mesmos que você já vinha usando)
+            // ------------------ Parâmetros principais ------------------
             const float PESO_RENOME_VALOR = 2.5f;
             const float PESO_PROSP_VALOR = 5.0f;
             const float PESO_RENOME_JUROS = 4.5f;
@@ -493,45 +493,52 @@ namespace BanksOfCalradia.Source.UI
             const float MULTA_MIN = 0.5f;
             const float MULTA_MAX = 5.0f;
 
-            // Segurança extra
-            if (installments < 1)
-                installments = 1;
-            if (installments > 240)
-                installments = 240;
+            // ------------------ Segurança ------------------
+            installments = MathF.Min(MathF.Max(installments, 1), 240);
 
+            prosperity = MathF.Max(prosperity, 1f);
+            renown = MathF.Max(renown, 1f);
+
+            // ------------------ Fatores ------------------
             float fatorRenome = MathF.Max(0.1f, renown / SUAV_RENOME);
             float fatorProsp = MathF.Max(0.2f, prosperity / SUAV_PROSP);
 
             float efeitoRenome = MathF.Log(1f + fatorRenome * (1f / SUAV_LOG));
             float efeitoProsp = MathF.Log(1f + fatorProsp * (1f / SUAV_LOG));
 
-            float valorMax = MathF.Pow(MathF.Max(prosperity, 1f), 0.85f)
-                             * MathF.Pow(MathF.Max(renown, 1f), 0.7f)
-                             / ESCALA_VALOR
-                             * ((1f + efeitoProsp * PESO_PROSP_VALOR) * (1f + efeitoRenome * PESO_RENOME_VALOR))
-                             * 2f;
-
-            // Garante um piso e um teto
+            // ------------------ Valor máximo liberado ------------------
+            float valorMax = MathF.Pow(prosperity, 0.85f) * MathF.Pow(renown, 0.7f) / ESCALA_VALOR;
+            valorMax *= ((1f + efeitoProsp * PESO_PROSP_VALOR) * (1f + efeitoRenome * PESO_RENOME_VALOR)) * 2f;
             valorMax = MathF.Clamp(valorMax, 300f, 1_000_000f);
 
-            float risco = (1f / (1f + efeitoProsp * PESO_PROSP_JUROS)
-                           + 1f / (1f + efeitoRenome * PESO_RENOME_JUROS)) / 2f;
+            // ------------------ Juros e parcelas ------------------
+            float risco = ((1f / (1f + efeitoProsp * PESO_PROSP_JUROS))
+                         + (1f / (1f + efeitoRenome * PESO_RENOME_JUROS))) / 2f;
 
             float fatorParcelas = 1f + MathF.Log(1f + installments) * PESO_PARCELAS_JUROS;
-
             float jurosFinal = JUROS_BASE * risco * fatorParcelas;
             jurosFinal = MathF.Clamp(jurosFinal, JUROS_MIN, JUROS_MAX);
 
             float valorTotal = valorMax * (1f + jurosFinal / 100f);
             float valorParcela = valorTotal / installments;
 
-            float fatorMultaProsp = MathF.Pow(MathF.Max(prosperity, 1f) / SUAV_PROSP, 0.7f);
+            // ------------------ Multa diária ------------------
+            float fatorMultaProsp = MathF.Pow(prosperity / SUAV_PROSP, 0.7f);
             float fatorMultaRenome = MathF.Pow(1.2f, -(renown / SUAV_RENOME));
             float multa = MULTA_BASE + fatorMultaProsp * MULTA_ESCALA_PROSP * (fatorMultaRenome / MULTA_ESCALA_RENOME);
             multa = MathF.Clamp(multa, MULTA_MIN, MULTA_MAX);
 
-            return (valorMax, jurosFinal, valorTotal, valorParcela, multa);
+            // ------------------ Arredondamentos finais ------------------
+            static float ArredondarBonito(float v) => MathF.Round(v / 50f) * 50f;
+
+            float valorMaxR = ArredondarBonito(valorMax);  // arredondamento visual
+            float valorTotalR = MathF.Round(valorTotal);   // exato, sem casas
+            float valorParcelaR = MathF.Round(valorParcela);
+
+            // ------------------ Retorno ------------------
+            return (valorMaxR, jurosFinal, valorTotalR, valorParcelaR, multa);
         }
+
 
         // ------------------------------------------------------------
         // Utilidades
