@@ -29,7 +29,7 @@
 		<string id="bank_loan_installment_paid" text="Parcela paga: -{AMOUNT}" />
 		<string id="bank_loan_payment_info" text="Empréstimo do banco de {CITY}: dívida restante {AMOUNT} | Parcelas restantes: {INSTALLMENTS}" />
 		<string id="bank_loan_partial_payment" text="Pagamento parcial: {PAID} | Restante antes da multa: {REMAINING}" />
-		<string id="bank_loan_penalty_applied" text="Multa de atraso de {RATE} aplicada. Novo restante: {AMOUNT}" />
+		<string id="bank_loan_penalty_applied" text="Multa de atraso de {RATE} aplicada ({FEE}). Novo restante: {AMOUNT}" />
 		<string id="bank_loan_penalty_frozen" text="Multa diária congelada após exceder 10× o valor contratado com juros." />
 		<string id="bank_loan_fully_paid" text="Empréstimo quitado. Contrato removido." />
 		<string id="bank_loan_process_summary" text="[Empréstimo] Processados: {TOTAL} | Integrais: {FULL} | Parciais: {PARTIAL} | Multas: {PENALTIES} | Quitados hoje: {PAIDTODAY}" />

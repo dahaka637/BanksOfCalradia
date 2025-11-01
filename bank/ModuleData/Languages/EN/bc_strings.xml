@@ -34,7 +34,7 @@
     <string id="bank_loan_installment_paid" text="Installment paid: -{AMOUNT}" />
     <string id="bank_loan_payment_info" text="Loan from the bank of {CITY}: remaining debt {AMOUNT} | Remaining installments: {INSTALLMENTS}" />
     <string id="bank_loan_partial_payment" text="Partial payment: {PAID} | Remaining before penalty: {REMAINING}" />
-    <string id="bank_loan_penalty_applied" text="Late penalty of {RATE} applied. New remaining: {AMOUNT}" />
+    <string id="bank_loan_penalty_applied" text="Late penalty of {RATE} applied ({FEE}). New remaining: {AMOUNT}" />
     <string id="bank_loan_penalty_frozen" text="Daily penalty frozen after exceeding 10× the contracted value with interest." />
     <string id="bank_loan_fully_paid" text="Loan fully paid. Contract removed." />
     <string id="bank_loan_process_summary" text="[Loan] Processed: {TOTAL} | Full: {FULL} | Partial: {PARTIAL} | Penalties: {PENALTIES} | Paid today: {PAIDTODAY}" />

@@ -514,9 +514,8 @@ namespace BanksOfCalradia.Source.UI
                 negativeAction: null
             ));
         }
-
         // ------------------------------------------------------------
-        // Novo algoritmo paramétrico de empréstimo (versão calibrada)
+        // Novo algoritmo de empréstimo (versão sem curva de suavização)
         // ------------------------------------------------------------
         private static (float maxLoan, float totalInterestPct, float totalWithInterest, float installmentValue, float lateFeePct)
             CalcLoanForecastParametric(float prosperity, float renown, int installments)
@@ -526,7 +525,7 @@ namespace BanksOfCalradia.Source.UI
             const float PESO_PROSP_VALOR = 5.0f;
             const float PESO_RENOME_JUROS = 4.5f;
             const float PESO_PROSP_JUROS = 1.15f;
-            const float PESO_PARCELAS_JUROS = 1.8f;
+            const float PESO_PARCELAS_JUROS = 1.5f;
 
             const float SUAV_RENOME = 400f;
             const float SUAV_PROSP = 7000f;
@@ -537,7 +536,7 @@ namespace BanksOfCalradia.Source.UI
             const float JUROS_MIN = 5.0f;
             const float JUROS_MAX = 600.0f;
 
-            const float MULTA_BASE = 1.2f;
+            const float MULTA_BASE = 1.15f;
             const float MULTA_ESCALA_PROSP = 1.1f;
             const float MULTA_ESCALA_RENOME = 1.05f;
             const float MULTA_MIN = 0.5f;
@@ -545,7 +544,6 @@ namespace BanksOfCalradia.Source.UI
 
             // ------------------ Segurança ------------------
             installments = MathF.Min(MathF.Max(installments, 1), 360);
-
             prosperity = MathF.Max(prosperity, 1f);
             renown = MathF.Max(renown, 1f);
 
@@ -556,10 +554,9 @@ namespace BanksOfCalradia.Source.UI
             float efeitoRenome = MathF.Log(1f + fatorRenome * (1f / SUAV_LOG));
             float efeitoProsp = MathF.Log(1f + fatorProsp * (1f / SUAV_LOG));
 
-            // ------------------ Valor máximo liberado ------------------
+            // ------------------ Valor máximo liberado (sem curva / sem cap) ------------------
             float valorMax = MathF.Pow(prosperity, 0.85f) * MathF.Pow(renown, 0.7f) / ESCALA_VALOR;
             valorMax *= ((1f + efeitoProsp * PESO_PROSP_VALOR) * (1f + efeitoRenome * PESO_RENOME_VALOR)) * 2f;
-            valorMax = MathF.Clamp(valorMax, 300f, 1_000_000f);
 
             // ------------------ Juros e parcelas ------------------
             float risco = ((1f / (1f + efeitoProsp * PESO_PROSP_JUROS))
@@ -581,13 +578,15 @@ namespace BanksOfCalradia.Source.UI
             // ------------------ Arredondamentos finais ------------------
             static float ArredondarBonito(float v) => MathF.Round(v / 50f) * 50f;
 
-            float valorMaxR = ArredondarBonito(valorMax);  // arredondamento visual
-            float valorTotalR = MathF.Round(valorTotal);   // exato, sem casas
+            float valorMaxR = ArredondarBonito(valorMax);
+            float valorTotalR = MathF.Round(valorTotal);
             float valorParcelaR = MathF.Round(valorParcela);
 
             // ------------------ Retorno ------------------
             return (valorMaxR, jurosFinal, valorTotalR, valorParcelaR, multa);
         }
+
+
 
 
         // ------------------------------------------------------------

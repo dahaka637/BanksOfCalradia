@@ -100,34 +100,57 @@ namespace BanksOfCalradia.Source.UI
         }
 
         // ============================================================
-        // Dynamic withdraw fee based on town economy
+        // Dynamic withdraw fee (Reversed Risk Curve – Balanced Final)
         // ============================================================
         private static float GetDynamicWithdrawFee(Settlement settlement)
         {
             if (settlement?.Town == null)
-                return 0.035f; // fallback 3.5 %
+                return 0.02f; // fallback 2 %
 
             float prosperity = settlement.Town.Prosperity;
             float security = settlement.Town.Security;
             float loyalty = settlement.Town.Loyalty;
 
-            // Fatores normalizados (quanto menor, maior o risco)
-            float pFactor = MathF.Clamp(1f - prosperity / 12000f, 0f, 1f);
-            float sFactor = MathF.Clamp(1f - security / 100f, 0f, 1f);
-            float lFactor = MathF.Clamp(1f - loyalty / 100f, 0f, 1f);
+            // -----------------------------------------------
+            // Parâmetros de calibração global
+            // -----------------------------------------------
+            const float MinFee = 0.0000f;  // 0.00%  → cidades perfeitas (isenção total)
+            const float MaxFee = 0.1000f;  // 10.00% → teto reduzido para colapso total
+            const float ProsperityRef = 10000f; // cidades com 10k são referência "ricas"
+            const float RiskGamma = 1.30f; // curva levemente suavizada (antes 1.35f)
 
-            // Base reduzida para suavizar todas as cidades
-            float baseFee = 0.028f;
+            // Pesos de impacto (quanto cada fator pesa no risco final)
+            const float wP = 0.55f; // prosperidade
+            const float wS = 0.30f; // segurança
+            const float wL = 0.15f; // lealdade
 
-            // Bônus de risco com curva logarítmica: reduz impacto tanto no topo quanto na base
-            float combined = (pFactor * 0.4f + sFactor * 0.4f + lFactor * 0.2f);
-            float riskBonus = MathF.Log10(1f + combined * 9f) * 0.035f;
+            // -----------------------------------------------
+            // Cálculo de risco (0 = estável, 1 = colapso)
+            // -----------------------------------------------
+            float pRisk = 1f - MathF.Clamp(prosperity / ProsperityRef, 0f, 1f);
+            float sRisk = MathF.Clamp((100f - security) / 100f, 0f, 1f);
+            float lRisk = MathF.Clamp((100f - loyalty) / 100f, 0f, 1f);
 
-            // Clamp suavizado: 1.8 % a 7.5 %
-            float dynamicFee = MathF.Clamp(baseFee + riskBonus, 0.018f, 0.075f);
+            // Combina riscos ponderados
+            float combined = (pRisk * wP) + (sRisk * wS) + (lRisk * wL);
 
-            return dynamicFee;
+            // Aplica curva exponencial para intensificar extremos
+            float curved = MathF.Pow(MathF.Clamp(combined, 0f, 1f), RiskGamma);
+
+            // Interpola entre MinFee e MaxFee
+            float fee = MinFee + (MaxFee - MinFee) * curved;
+
+            // -----------------------------------------------
+            // Rebate adicional para estabilidade extrema
+            // -----------------------------------------------
+            float stability = 1f - combined;
+            float rebate = MathF.Pow(stability, 4f) * 0.002f; // até -0.2%
+            fee = MathF.Max(MinFee, fee - rebate);
+
+            // Limita entre 0% e 10%
+            return MathF.Clamp(fee, MinFee, MaxFee);
         }
+
 
 
         // ============================================
@@ -189,7 +212,7 @@ namespace BanksOfCalradia.Source.UI
                 float prosperity = settlement?.Town?.Prosperity ?? 0f;
 
                 // ============================================================
-                // 💹 Novo cálculo calibrado – mais prosperidade, menos juros em cidades ricas
+                // 💹 CÁLCULO DE POUPANÇA (Curva Calibrada Premium)
                 // ============================================================
                 const float fator = 350f;
                 const float prosperidadeBase = 5000f;
@@ -203,53 +226,33 @@ namespace BanksOfCalradia.Source.UI
                 float rawSuavizador = prosperidadeBase / prosperity;
                 float fatorSuavizador = 0.7f + (rawSuavizador * 0.7f);
 
-                // --- Ajuste de pobreza ---
-                float bonus = 0f;
-                if (prosperity < prosperidadeBase)
-                {
-                    float ajustePobreza = MathF.Pow((prosperidadeBase - prosperity) / prosperidadeBase, 1.3f);
-                    bonus = ajustePobreza * 3f;
-                }
+                // --- Incentivo de pobreza ---
+                float pobrezaRatio = MathF.Max(0f, (prosperidadeBase - prosperity) / prosperidadeBase);
+                float incentivoPobreza = MathF.Pow(pobrezaRatio, 1.05f) * 0.15f; // até +15% em cidades muito pobres
 
-                // --- Ajuste de riqueza ---
-                float ajusteRiqueza = 0f;
+                // --- Penalidade de riqueza ---
+                float penalidadeRiqueza = 0f;
                 if (prosperity > prosperidadeAlta)
                 {
                     float excesso = (prosperity - prosperidadeAlta) / (prosperidadeMax - prosperidadeAlta);
-                    excesso = MathF.Clamp(excesso, 0f, 1f);
-                    ajusteRiqueza = MathF.Pow(excesso, 1.6f) * 5.5f;
-                    // ➕ leve suavização extra para reduzir juros de cidades ricas
-                    ajusteRiqueza *= 1.15f;
+                    excesso = MathF.Max(0f, excesso);
+                    penalidadeRiqueza = MathF.Pow(excesso, 1f) * 0.025f; // até -2.5% no máximo
                 }
 
-                // --- Cálculo das taxas ---
-                float taxaAnualBruta = (prosperity / fator) + bonus - ajusteRiqueza;
+                // --- Taxa base anual ---
+                float taxaBase = 6.5f + MathF.Pow(prosperidadeBase / prosperity, 0.45f) * 6.0f;
+                taxaBase *= (1.0f + incentivoPobreza - penalidadeRiqueza);
 
-                // ➖ leve redução global nas cidades acima da média
-                float taxaAnual = taxaAnualBruta;
-                if (prosperity > prosperidadeBase)
-                {
-                    float suavReducao = 1f - ((prosperity - prosperidadeBase) / prosperidadeMax) * 0.1f; // até -10 %
-                    taxaAnual = taxaAnualBruta * MathF.Max(0.85f, suavReducao);
-                }
+                // --- Compressão logarítmica ---
+                float ajusteLog = 1.0f / (1.0f + (prosperity / 25000.0f));
+                float taxaAnual = taxaBase * (0.95f + ajusteLog * 0.15f);
+                taxaAnual = MathF.Round(taxaAnual, 2);
 
+                // --- Taxa diária ---
                 float taxaDiaria = taxaAnual / CICLO_DIAS;
 
-                // --- Simulação de rendimento (para exibição no painel) ---
-                float rendimentoDia = 10_000f * (taxaDiaria / 100f); // base simbólica para exibição
-                float rendimentoTotal = rendimentoDia * CICLO_DIAS;
-                float ganhoProsperidadeDia = MathF.Round(
-                    MathF.Pow(10_000f / 1_000_000f, 0.55f)
-                    * MathF.Pow(6000f / (prosperity + 3000f), 0.3f)
-                    * fatorSuavizador
-                    * 1.5f
-                    * (1f + bonus * 0.05f)
-                    * (1f - ajusteRiqueza * 0.03f),
-                    4
-                );
-
                 // ============================================================
-                // 🔹 Dados e interface (inalterados)
+                // 🔹 Dados e interface
                 // ============================================================
                 float withdrawRate = GetDynamicWithdrawFee(settlement);
 
@@ -262,19 +265,19 @@ namespace BanksOfCalradia.Source.UI
                     "• Annual interest rate: {INTEREST_AA}\n" +
                     "• Daily interest rate: {INTEREST_AD}\n" +
                     "• Local prosperity: {PROSPERITY}\n" +
-                    "• Prosperity gain (forecast): +{GAIN}/day\n" +
                     "• Withdraw fee: {WITHDRAW_FEE}\n" +
                     "• Current balance: {BALANCE}\n");
+
                 body.SetTextVariable("CITY", townName);
                 body.SetTextVariable("INTEREST_AA", BankUtils.FmtPct(taxaAnual / 100f));
                 body.SetTextVariable("INTEREST_AD", BankUtils.FmtPct(taxaDiaria / 100f));
                 body.SetTextVariable("PROSPERITY", prosperity.ToString("0"));
-                body.SetTextVariable("GAIN", ganhoProsperidadeDia.ToString("0.0000"));
                 body.SetTextVariable("WITHDRAW_FEE", BankUtils.FmtPct(withdrawRate));
                 body.SetTextVariable("BALANCE", BankUtils.FmtDenars(balance));
 
                 args.MenuTitle = body;
                 SafeSetMenuText(args, body);
+
             }
             catch (Exception e)
             {

@@ -54,7 +54,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
         }
 
         // =====================================================
-        // Bank prosperity forecast (same logic as FinanceModel)
+        // Bank prosperity forecast (Curva Calibrada Premium)
         // =====================================================
         private void AddBankProsperityForecast(Town town, ref ExplainedNumber result, bool includeDescriptions)
         {
@@ -86,8 +86,9 @@ namespace BanksOfCalradia.Source.Systems.Processing
                     float prosperity = MathF.Max(town.Prosperity, 1f);
 
                     // ============================================================
-                    // 💹 NOVO ALGORITMO CALIBRADO (versão ajustada – mais prosperidade, menos juros em cidades ricas)
+                    // 💹 CÁLCULO DE PROSPERIDADE (Curva Calibrada Premium)
                     // ============================================================
+                    const float fator = 350f;
                     const float prosperidadeBase = 5000f;
                     const float prosperidadeAlta = 6000f;
                     const float prosperidadeMax = 10000f;
@@ -96,37 +97,32 @@ namespace BanksOfCalradia.Source.Systems.Processing
                     float rawSuavizador = prosperidadeBase / prosperity;
                     float fatorSuavizador = 0.7f + (rawSuavizador * 0.7f);
 
-                    // --- Bônus de pobreza ---
-                    float bonus = 0f;
-                    if (prosperity < prosperidadeBase)
-                    {
-                        float ajustePobreza = MathF.Pow((prosperidadeBase - prosperity) / prosperidadeBase, 1.3f);
-                        bonus = ajustePobreza * 3f;
-                    }
+                    // --- Incentivo de pobreza ---
+                    float pobrezaRatio = MathF.Max(0f, (prosperidadeBase - prosperity) / prosperidadeBase);
+                    float incentivoPobreza = MathF.Pow(pobrezaRatio, 1.05f) * 0.15f; // até +15% em cidades muito pobres
 
-                    // --- Ajuste de riqueza ---
-                    float ajusteRiqueza = 0f;
+                    // --- Penalidade de riqueza ---
+                    float penalidadeRiqueza = 0f;
                     if (prosperity > prosperidadeAlta)
                     {
                         float excesso = (prosperity - prosperidadeAlta) / (prosperidadeMax - prosperidadeAlta);
-                        excesso = MathF.Clamp(excesso, 0f, 1f);
-                        ajusteRiqueza = MathF.Pow(excesso, 1.6f) * 5.5f;
-                        // ➕ leve suavização extra para reduzir o efeito de cidades ricas
-                        ajusteRiqueza *= 1.15f;
+                        excesso = MathF.Max(0f, excesso);
+                        penalidadeRiqueza = MathF.Pow(excesso, 1f) * 0.025f; // até -2.5% máximo
                     }
 
-                    // --- Ganho de prosperidade diário ---
+                    // ============================================================
+                    // 🏙️ Ganho de prosperidade diário real
+                    // ============================================================
                     float ganhoBase = MathF.Pow(acc.Amount / 1_000_000f, 0.55f);
                     float fatorProsperidade = MathF.Pow(6000f / (prosperity + 3000f), 0.3f);
 
-                    // ⚡ Boost global de +50% em prosperidade
                     float ganhoPrevisto = MathF.Round(
                         ganhoBase
                         * fatorProsperidade
                         * fatorSuavizador
-                        * 1.5f
-                        * (1f + bonus * 0.05f)
-                        * (1f - ajusteRiqueza * 0.03f),
+                        * 1.9f                       // boost global +90%
+                        * (1f + incentivoPobreza * 2f)
+                        * (1f - penalidadeRiqueza * 0.3f),
                         4
                     );
 
@@ -134,12 +130,12 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 }
             }
 
-            if (totalGain > 0.01f)
+            if (totalGain > 0.0001f)
             {
                 var label = L.T("prosperity_bank_label", "Bank savings influence");
                 result.Add(totalGain, label);
 
-                #if DEBUG
+#if DEBUG
                 if (DEBUG_MODE)
                 {
                     var dbg = L.T("prosperity_bank_debug",
@@ -152,9 +148,10 @@ namespace BanksOfCalradia.Source.Systems.Processing
                         Color.FromUint(0xFFAACCEE)
                     ));
                 }
-                #endif
+#endif
             }
         }
+
 
     }
 }

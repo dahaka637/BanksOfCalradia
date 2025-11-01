@@ -249,23 +249,37 @@ namespace BanksOfCalradia.Source.Systems.Processing
 
         private static string BuildPenaltyMessage(BankLoanData loan, int appliedFee)
         {
+            // Mensagem base com suporte à localização
             var msg = L.T("loan_penalty_applied",
-                "Late fee of {RATE} applied. New remaining: {AMOUNT}");
-            msg.SetTextVariable("RATE", BankUtils.FmtPct(loan.LateFeeRate > 1f ? loan.LateFeeRate / 100f : loan.LateFeeRate));
+                "Late fee of {RATE} applied ({FEE}). New remaining: {AMOUNT}");
+
+            // Formata a taxa percentual
+            string rateFormatted = BankUtils.FmtPct(
+                loan.LateFeeRate > 1f ? loan.LateFeeRate / 100f : loan.LateFeeRate
+            );
+
+            // Formata o valor da multa entre parênteses (ex: +3,421)
+            string feeFormatted = "+" + BankUtils.FmtDenars(appliedFee);
+
+            // Define variáveis para substituição no texto
+            msg.SetTextVariable("RATE", rateFormatted);
+            msg.SetTextVariable("FEE", feeFormatted);
             msg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(loan.Remaining));
+
             return msg.ToString();
         }
+
         private static void ShowPaymentInfo(string msg, int paidAmount = 0)
         {
             if (!GAMEPLAY_MESSAGES) return;
 
             if (paidAmount > 0)
             {
-                // começa com {=!} para habilitar o markup
+                // Ícone ilustrativo (não renderiza em InformationMessage, mas pode ser mantido para consistência visual)
                 string icon = "<img src=\"General\\Icons\\Coin@2x\" extend=\"8\">";
-                // aqui vai SEM o "bank_"
+                // Aqui vai SEM o "bank_"
                 string prefix = L.S("loan_installment_paid_icon", "Installment paid:");
-                string paidLine = "{=!}" + prefix + " -" + BankUtils.FmtDenars(paidAmount) + " " + icon;
+                string paidLine = prefix + " -" + BankUtils.FmtDenars(paidAmount) + " " + icon;
 
                 InformationManager.DisplayMessage(new InformationMessage(
                     paidLine,
@@ -278,6 +292,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 Color.FromUint(0xFFEEEEEE)
             ));
         }
+
 
 
 

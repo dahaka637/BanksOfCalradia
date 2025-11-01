@@ -27,7 +27,7 @@ namespace BanksOfCalradia.Source.Systems
     public class BankCampaignBehavior : CampaignBehaviorBase
     {
         private BankStorage _bankStorage = new BankStorage();
-        private const float TradeXpMultiplier = 0.0008f;
+        private const float TradeXpMultiplier = 0.00025f;
 
         // ============================================
         // Event Registration
@@ -225,7 +225,13 @@ namespace BanksOfCalradia.Source.Systems
                     return;
 
                 float logComponent = MathF.Log10(totalDailyGain / 2f + 10f);
-                float xpRaw = MathF.Pow(logComponent, 0.85f) * (totalDailyGain * TradeXpMultiplier * 0.8f);
+
+                // 🟡 Soft cap: reduz XP para lucros muito altos (curva suave e progressiva)
+                float damp = 1f / (1f + (totalDailyGain / 8000f)); // 8k = ponto médio de amortecimento
+
+                // ⚙️ XP final balanceada com curva de redução
+                float xpRaw = MathF.Pow(logComponent, 0.85f) * (totalDailyGain * TradeXpMultiplier * 0.8f * damp);
+
 
                 if (xpRaw >= 0.1f)
                 {
