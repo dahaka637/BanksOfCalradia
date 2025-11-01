@@ -1,59 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Module>
-	<!-- ======================================================
-	     Banks of Calradia
-	     Author: Dahaka / Quantum DevLabs
-	     Version: 1.0.0 (Stable / Core Release)
-	     Description:
-	       Adds realistic banking mechanics, interest, loans,
-	       and prosperity influence to the Calradian economy.
-	     ====================================================== -->
+	<!-- ==============================
+	     Banks of Calradia (v1.0.4.1)
+	     Author: Dahaka 
+	     ============================== -->
 
-	<Name value="Banks of Calradia" />
-	<Id value="BanksOfCalradia" />
-	<Version value="1.0.4" />
-	<SingleplayerModule value="true" />
-	<MultiplayerModule value="false" />
+	<Name value="Banks of Calradia"/>
+	<Id value="BanksOfCalradia"/>
+	<Version value="v1.0.4.1"/>
+	<SingleplayerModule value="true"/>
+	<MultiplayerModule value="false"/>
 
-	<!-- ======================================================
-	     Dependencies — Ensure load order and base systems
-	     ====================================================== -->
+	<!-- Dependências obrigatórias -->
 	<DependedModules>
-		<DependedModule Id="Native"          DependentVersion="v1.3.2" Optional="false" />
-		<DependedModule Id="SandBoxCore"     DependentVersion="v1.3.2" Optional="false" />
-		<DependedModule Id="Sandbox"         DependentVersion="v1.3.2" Optional="false" />
-		<DependedModule Id="StoryMode"       DependentVersion="v1.3.2" Optional="true" />
+		<DependedModule Id="Native" DependentVersion="v1.3.2.96234" Optional="false"/>
+		<DependedModule Id="SandBoxCore" DependentVersion="v1.3.2.96234" Optional="false"/>
+		<DependedModule Id="Sandbox" DependentVersion="v1.3.2.96234" Optional="false"/>
+		<DependedModule Id="StoryMode" DependentVersion="v1.3.2.96234" Optional="true"/>
 	</DependedModules>
 
-	<!-- ======================================================
-	     Main SubModule
-	     ====================================================== -->
+	<!-- Núcleo do módulo -->
 	<SubModules>
 		<SubModule>
-			<Name value="Banks of Calradia — Core Systems" />
-			<DLLName value="BanksOfCalradia.dll" />
-			<SubModuleClassType value="BanksOfCalradia.Source.Core.SubModule" />
+			<Name value="Banks of Calradia Main"/>
+			<DLLName value="BanksOfCalradia.dll"/>
+			<SubModuleClassType value="BanksOfCalradia.Source.SubModule"/>
 
 			<Tags>
-				<Tag key="DedicatedServerType" value="none" />
-				<Tag key="IsNoRenderModeElement" value="false" />
+				<Tag key="DedicatedServerType" value="none"/>
+				<Tag key="IsNoRenderModeElement" value="false"/>
 			</Tags>
-
-			<!-- Optional auto-load order -->
-			<LoadAfterIds>
-				<LoadAfterId value="Sandbox" />
-				<LoadAfterId value="StoryMode" />
-			</LoadAfterIds>
 		</SubModule>
 	</SubModules>
 
-	<!-- ======================================================
-	     XML Data Files (Language / Templates / etc)
-	     ====================================================== -->
-	<Xmls>
-		<!-- Localization files are dynamically loaded by L -->
-		<!-- Example future entry:
-		<XmlNode Path="ModuleData/Languages/BR/" Type="string" />
-		-->
-	</Xmls>
+	<!-- XMLs adicionais (futuro uso) -->
+	<Xmls/>
 </Module>
