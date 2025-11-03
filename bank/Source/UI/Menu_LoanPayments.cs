@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Reflection;
 using System.Collections.Generic;
+using System.Reflection;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.GameMenus;
 using TaleWorlds.CampaignSystem.Settlements;
@@ -23,30 +23,37 @@ namespace BanksOfCalradia.Source.UI
         private static string _selectedLoanId = null;
 
         private static BankCampaignBehavior _behaviorRef;
-        private static CampaignGameStarter _starterRef;
         private static bool _registered;
 
+        // -------------------------------------------------------------
+        // Registro de menus
+        // -------------------------------------------------------------
         public static void RegisterMenu(CampaignGameStarter starter, BankCampaignBehavior behavior)
         {
+            if (starter == null)
+                return;
+
             if (_registered)
                 return;
 
             _registered = true;
             _behaviorRef = behavior;
-            _starterRef = starter;
 
+            // Menu de lista de empréstimos
             starter.AddGameMenu(
                 "bank_loan_pay",
                 L.S("loanpay_list_loading", "Loading active loans..."),
                 OnMenuInit_List
             );
 
+            // Menu de detalhes do contrato
             starter.AddGameMenu(
                 "bank_loan_detail",
                 L.S("loanpay_detail_loading", "Loading contract details..."),
                 OnMenuInit_Detail
             );
 
+            // Opções do menu de detalhes
             starter.AddGameMenuOption(
                 "bank_loan_detail",
                 "loan_detail_back",
@@ -70,6 +77,32 @@ namespace BanksOfCalradia.Source.UI
                     return loan != null && loan.Remaining > ACTIVE_LOAN_THRESHOLD;
                 },
                 _ => PromptPayment()
+            );
+
+            // Opções fixas do menu de lista de empréstimos
+            starter.AddGameMenuOption(
+                "bank_loan_pay",
+                "loan_pick",
+                L.S("loanpay_list_pick", "Select contract"),
+                args =>
+                {
+                    args.optionLeaveType = GameMenuOption.LeaveType.Continue;
+                    return HasActiveLoansInCurrentTown();
+                },
+                _ => ShowLoanPicker()
+            );
+
+            starter.AddGameMenuOption(
+                "bank_loan_pay",
+                "loan_pay_back",
+                L.S("loanpay_list_back", "Return to Bank"),
+                args =>
+                {
+                    args.optionLeaveType = GameMenuOption.LeaveType.Leave;
+                    return true;
+                },
+                _ => SafeSwitchToMenu("bank_loanmenu"),
+                isLeave: true
             );
         }
 
@@ -108,8 +141,8 @@ namespace BanksOfCalradia.Source.UI
                 if (storage == null)
                     return null;
 
-                var list = storage.GetLoans(hero.StringId);
-                if (list == null)
+                var list = storage.GetLoans(hero.StringId ?? "player");
+                if (list == null || list.Count == 0)
                     return null;
 
                 return list.Find(l => l.LoanId == _selectedLoanId);
@@ -117,6 +150,40 @@ namespace BanksOfCalradia.Source.UI
             catch
             {
                 return null;
+            }
+        }
+
+        private static bool HasActiveLoansInCurrentTown()
+        {
+            try
+            {
+                var behavior = GetBehavior();
+                var hero = Hero.MainHero;
+                var settlement = Settlement.CurrentSettlement;
+
+                if (behavior == null || hero == null || settlement == null)
+                    return false;
+
+                var storage = behavior.GetStorage();
+                if (storage == null)
+                    return false;
+
+                string playerId = hero.StringId ?? "player";
+                string townId = settlement.StringId ?? "town";
+
+                var loans = storage.GetLoans(playerId) ?? new List<BankLoanData>();
+                for (int i = 0; i < loans.Count; i++)
+                {
+                    var l = loans[i];
+                    if (l != null && l.TownId == townId && l.Remaining > ACTIVE_LOAN_THRESHOLD)
+                        return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
             }
         }
 
@@ -133,7 +200,7 @@ namespace BanksOfCalradia.Source.UI
 
                 if (behavior == null || hero == null || settlement == null)
                 {
-                    Warn(L.S("loanpay_err_ctx", "Error: invalid context (behavior/player/town)."));
+                    Warn(L.S("loanpay_err_ctx", "Error: invalid context for loan list."));
                     return;
                 }
 
@@ -181,43 +248,10 @@ namespace BanksOfCalradia.Source.UI
                     body.SetTextVariable("SEP", SEP);
                     SetMenuText(args, body);
                 }
-
-                // Limpa botões antigos
-                ClearMenuOptions(args);
-
-                if (_starterRef != null)
-                {
-                    _starterRef.AddGameMenuOption(
-                        "bank_loan_pay",
-                        "loan_pick",
-                        L.S("loanpay_list_pick", "Select contract"),
-                        a =>
-                        {
-                            a.optionLeaveType = GameMenuOption.LeaveType.Continue;
-                            return cityLoans.Count > 0;
-                        },
-                        _ => ShowLoanPicker()
-                    );
-
-                    _starterRef.AddGameMenuOption(
-                        "bank_loan_pay",
-                        "loan_pay_back",
-                        L.S("loanpay_list_back", "Return to Bank"),
-                        a =>
-                        {
-                            a.optionLeaveType = GameMenuOption.LeaveType.Leave;
-                            return true;
-                        },
-                        _ => SafeSwitchToMenu("bank_loanmenu"),
-                        isLeave: true
-                    );
-                }
             }
-            catch (Exception e)
+            catch
             {
-                var msg = L.T("loanpay_err_list", "Error building loan list: {ERROR}");
-                msg.SetTextVariable("ERROR", e.Message);
-                Warn(msg.ToString());
+                Warn(L.S("loanpay_err_list", "Could not open the loan list."));
             }
         }
 
@@ -307,11 +341,9 @@ namespace BanksOfCalradia.Source.UI
 
                             SafeSwitchToMenu("bank_loan_detail");
                         }
-                        catch (Exception ex)
+                        catch
                         {
-                            var msg = L.T("loanpay_err_open_picker_cb", "Error handling selection: {ERROR}");
-                            msg.SetTextVariable("ERROR", ex.Message);
-                            Warn(msg.ToString());
+                            Warn(L.S("loanpay_err_open_picker_cb", "Error handling selection."));
                             SafeSwitchToMenu("bank_loan_pay");
                         }
                     },
@@ -323,11 +355,9 @@ namespace BanksOfCalradia.Source.UI
 
                 MBInformationManager.ShowMultiSelectionInquiry(data);
             }
-            catch (Exception e)
+            catch
             {
-                var msg = L.T("loanpay_err_open_picker", "Error opening contract selection: {ERROR}");
-                msg.SetTextVariable("ERROR", e.Message);
-                Warn(msg.ToString());
+                Warn(L.S("loanpay_err_open_picker", "Error opening contract selection."));
                 SafeSwitchToMenu("bank_loan_pay");
             }
         }
@@ -388,17 +418,14 @@ namespace BanksOfCalradia.Source.UI
                 args.MenuTitle = L.T("loanpay_detail_title", "Loan Details");
                 SetMenuText(args, body);
             }
-            catch (Exception e)
+            catch
             {
-                var msg = L.T("loanpay_err_detail", "Error showing details: {ERROR}");
-                msg.SetTextVariable("ERROR", e.Message);
-                Warn(msg.ToString());
+                Warn(L.S("loanpay_err_detail", "Error showing loan details."));
             }
         }
 
         // -------------------------------------------------------------
-        // Cálculo de abatimento (versão dinâmica, igual ao Python)
-        // Baseia-se no VALOR CONTRATADO + juros totais e não usa médias fixas
+        // Cálculo de abatimento (dinâmico, igual ao Python)
         // -------------------------------------------------------------
         private static (float custoPago, float descontoEfetivo, float novoSaldo) CalcularAbatimentoAntecipadoPorSaldo(
             float saldoAtual,
@@ -445,8 +472,6 @@ namespace BanksOfCalradia.Source.UI
             return (custoPago, descontoEfetivo, novoSaldo);
         }
 
-
-
         // -------------------------------------------------------------
         // Pagamento parcial
         // -------------------------------------------------------------
@@ -472,6 +497,7 @@ namespace BanksOfCalradia.Source.UI
                 }
 
                 float gold = MathF.Max(0f, (float)hero.Gold);
+
                 float remaining = MathF.Max(0f, contract.Remaining);
 
                 var descObj = L.T("loanpay_popup_desc",
@@ -525,7 +551,6 @@ namespace BanksOfCalradia.Source.UI
                                 return;
                             }
 
-                            // quanto o jogador realmente quer pagar agora
                             float amountToPay = MathF.Min(value, current.Remaining);
                             if (amountToPay <= 0f)
                             {
@@ -533,13 +558,9 @@ namespace BanksOfCalradia.Source.UI
                                 return;
                             }
 
-                            // base do cálculo: saldo atual do contrato
                             float saldoAtual = MathF.Max(current.Remaining, 1f);
-
-                            // prazo real em dias (sem dividir por 30)
                             int diasRestantes = Math.Max(current.DurationDays, 1);
 
-                            // cálculo de abatimento dinâmico (igual ao Python que você aprovou)
                             var (custoPago, descontoEfetivo, novoSaldo) = CalcularAbatimentoAntecipadoPorSaldo(
                                 saldoAtual,
                                 current.InterestRate,
@@ -547,7 +568,6 @@ namespace BanksOfCalradia.Source.UI
                                 amountToPay
                             );
 
-                            // cobramos o que realmente precisa ser cobrado
                             int custoFinal = MathF.Round(custoPago);
                             if (custoFinal > hero.Gold)
                             {
@@ -557,7 +577,6 @@ namespace BanksOfCalradia.Source.UI
 
                             hero.ChangeHeroGold(-custoFinal);
 
-                            // atualiza o saldo do contrato
                             current.Remaining = novoSaldo;
                             if (current.Remaining < ACTIVE_LOAN_THRESHOLD)
                                 current.Remaining = 0f;
@@ -617,54 +636,29 @@ namespace BanksOfCalradia.Source.UI
 
                             SafeSwitchToMenu("bank_loan_detail");
                         }
-                        catch (Exception ex)
+                        catch
                         {
-                            var msg = L.T("loanpay_err_payment_cb", "Error processing payment: {ERROR}");
-                            msg.SetTextVariable("ERROR", ex.Message);
-                            Warn(msg.ToString());
+                            Warn(L.S("loanpay_err_payment_cb", "Error processing payment."));
                         }
                     },
                     null
                 ));
             }
-            catch (Exception e)
+            catch
             {
-                var msg = L.T("loanpay_err_payment", "Error processing payment: {ERROR}");
-                msg.SetTextVariable("ERROR", e.Message);
-                Warn(msg.ToString());
+                Warn(L.S("loanpay_err_payment", "Error starting payment."));
             }
         }
-
 
         // -------------------------------------------------------------
         // Utilidades
         // -------------------------------------------------------------
-        private static void ClearMenuOptions(MenuCallbackArgs args)
-        {
-            try
-            {
-                var menu = args.MenuContext?.GameMenu;
-                if (menu == null)
-                    return;
-
-                var listField = typeof(GameMenu).GetField("_menuOptions", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (listField == null)
-                    return;
-
-                var list = listField.GetValue(menu) as IList<GameMenuOption>;
-                list?.Clear();
-            }
-            catch
-            {
-            }
-        }
-
         private static void SetMenuText(MenuCallbackArgs args, TextObject text)
         {
             try
             {
                 var menu = args.MenuContext?.GameMenu;
-                if (menu == null)
+                if (menu == null || text == null)
                     return;
 
                 var field = typeof(GameMenu).GetField("_defaultText", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -692,9 +686,12 @@ namespace BanksOfCalradia.Source.UI
 
         private static void Warn(string msg)
         {
+            if (string.IsNullOrWhiteSpace(msg))
+                msg = "[BanksOfCalradia] An error occurred.";
+
             InformationManager.DisplayMessage(
                 new InformationMessage(
-                    msg ?? "[BanksOfCalradia] Unknown error.",
+                    msg,
                     Color.FromUint(0xFFFF6666)
                 )
             );
