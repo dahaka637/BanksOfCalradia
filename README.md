@@ -1,85 +1,182 @@
-<img width="1600" height="750" alt="back" src="https://github.com/user-attachments/assets/782e2675-fba9-46bd-ae41-e4a3f9ef1c15" />
-
 # Banks of Calradia
-### Mod Overview
+### Technical Documentation — Version 2.6.0
 
-**Banks of Calradia** is a comprehensive economic simulation mod for *Mount & Blade II: Bannerlord*, introducing a fully functional banking system. Players can **deposit savings**, **take loans**, and **influence city prosperity** through financial activity — creating a dynamic connection between personal wealth and the world economy.
-
----
-
-## ⚙️ Core Concept
-The mod adds banks to each major settlement. These institutions provide services for:
-- **Savings accounts** that yield daily interest based on city prosperity.
-- **Loans** with dynamically calculated credit limits, interest, and late fees.
-- **Prosperity influence**, where large deposits stimulate city growth.
-- **Passive Trade XP**, where daily banking profits grant gradual Trade experience.
-
-Interest rates, loan values, and penalties are determined through adaptive formulas that react to both **city economics** and **player renown**, creating a realistic, evolving financial environment.
+## Overview
+**Banks of Calradia** is a financial simulation mod for *Mount & Blade II: Bannerlord* that introduces a fully functional banking system with realistic savings, loan contracts, and economic interactions tied to the prosperity of each settlement.  
+The project is written in **C#** and designed for maintainability, modular expansion, and native localization support.
 
 ---
 
-## 🧩 Technical Structure
+## 1. Architecture Overview
 
-The mod is organized into clear modules for maintainability and modular growth:
+### 1.1 Core Modules
+The mod is divided into structured components under `Source/`, each responsible for a specific layer of logic:
 
-| Layer | Path | Role |
-|--------|------|------|
-| **Core** | `/Source/Core/` | Utilities, localization, and data helpers. |
-| **Systems** | `/Source/Systems/` | Main logic for loans, savings, prosperity, and XP gains. |
-| **UI** | `/Source/UI/` | Menus for savings, loan creation, and loan payment. |
-| **ModuleData** | `/ModuleData/Languages/` | Localization files (EN, BR, SP). |
+| Layer | Path | Responsibility |
+|--------|------|----------------|
+| **Core** | `/Source/Core/` | Fundamental helpers such as utilities, ledger management, and localization wrapper. |
+| **Systems** | `/Source/Systems/` | Persistent data models, processing logic, campaign behaviors, and auto-save routines. |
+| **UI** | `/Source/UI/` | In-game menu definitions (savings, loan, loan payments). |
+| **ModuleData** | `/ModuleData/` | XML language files for localization (BR, EN, SP). |
 
----
-
-## 💰 Dynamic Economy System
-
-All financial operations are dynamically influenced by both **city economics** and **player reputation**.
-
-- **City Prosperity, Loyalty, and Security** affect savings interest, withdrawal fees, and late payment penalties.  
-- **Clan Renown** determines available credit limits and reduces interest for reputable players.  
-- **Loan penalties** and **interest rates** evolve as cities grow or decline economically.  
-- **Withdrawal fees** reflect local financial stability and risk.  
-- **Economic downturns** increase banking profits in poor towns while limiting growth in rich ones.  
-
-This creates a living, reactive economy that balances realism with engaging gameplay.
+### 1.2 Entry Point
+`SubModule.cs` initializes the entire system when the campaign starts. It registers:
+- Core behaviors: `BankCampaignBehavior`
+- Models: `FinanceProcessor`, `BankLoanProcessor`, `BankProsperityModel`
+- Menus: `BankMenu_Savings`, `BankMenu_Loan`, `BankMenu_LoanPay`
 
 ---
 
-## 🧠 Key Algorithms
-- **Dynamic Interest:** Adjusts savings yields with higher returns in struggling cities.  
-- **Loan Forecasting:** Calculates credit and interest based on prosperity, renown, and loan duration.  
-- **Prosperity Forecasting:** Deposits contribute to city growth through a calibrated prosperity gain formula.  
-- **Passive XP Gain:** Daily interest income passively grants Trade skill experience.  
+## 2. Core Components
+
+### 2.1 `BankCampaignBehavior`
+Manages:
+- Bank data persistence (JSON serialization in save files)
+- Event registration (`OnSessionLaunched`, `DailyTick`)
+- Dynamic menu registration for towns
+- Daily XP rewards from interest earnings
+
+It integrates with the campaign system to display the “Visit Bank” option in towns and synchronize financial data across saves.
+
+### 2.2 `BankStorage`
+Central persistence model holding all player financial data.
+```csharp
+Dictionary<string, List<BankSavingsData>> SavingsByPlayer;
+Dictionary<string, List<BankLoanData>> LoansByPlayer;
+```
+Handles creation, lookup, and deletion of loan/savings entries. Includes daily loan updates with late fee penalties and safety caps.
+
+### 2.3 `FinanceProcessor` and Models
+Implements financial behavior at campaign tick level (e.g., interest accumulation).  
+`ProsperityModel` adjusts interest rates dynamically based on city prosperity, loyalty, and security factors.
 
 ---
 
-## 🧱 Main Components
+## 3. Data Models
 
-### `BankCampaignBehavior`
-Registers and manages all systems — including daily updates, JSON persistence, and Trade XP generation.
-
-### `FinanceProcessor`
-Integrates with Bannerlord’s economy model to inject interest income and prosperity forecasts.
-
-### `BankProsperityModel`
-Applies prosperity bonuses derived from player deposits per city.
-
-### `BankMenu_Savings` & `BankMenu_Loan`
-Provide player interfaces for savings, withdrawals, and loan management with real-time calculations.
+| Class | Description |
+|--------|--------------|
+| **`BankLoanData`** | Stores loan contracts — principal, interest, duration, late fee, and identifiers. |
+| **`BankSavingsData`** | Stores savings account values and pending interest fragments. |
+| **`LoanContractData`** | Abstraction for potential loan processing extensions. |
+| **`SavingsAccountData`** | Placeholder for detailed savings operations (future-proofed). |
 
 ---
 
-## 🌐 Localization
-Full multilingual support through native XML and a custom `LocalizationHelper`.
+## 4. UI and Interaction Layer
 
-Languages available:
-- **English (default)**
-- **Português (BR)**
-- **Español (SP)**
+### 4.1 `BankMenu_Savings`
+Implements savings operations with deposit/withdraw logic.  
+Withdraw fees are dynamically calculated from town economic factors (prosperity, security, loyalty).  
+Includes quick-access options, custom input dialogs, and transaction confirmations.
+
+### 4.2 `BankMenu_Loan`
+Handles loan simulation and contract creation:
+- Calculates max credit using player renown + town prosperity.
+- Dynamically adjusts interest and late fees.
+- Generates loan contracts serialized into storage.
+
+### 4.3 `BankMenu_LoanPay`
+Allows users to manage and pay existing loans:
+- Displays active loans filtered per town.
+- Supports partial payments.
+- Includes inquiry dialogs for selection and input validation.
 
 ---
 
-## 📂 Directory Structure
+## 5. Localization System
+
+The mod uses a **custom localization helper** (`LocalizationHelper.cs`) integrated with native Bannerlord `TextObject`.
+
+- `L.S(id, fallback)` → returns localized text string.
+- `L.T(id, fallback)` → returns `TextObject` with variables.
+
+### Directory Structure
+```
+ModuleData/
+└── Languages/
+    ├── BR/
+    │   ├── bc_strings.xml
+    │   ├── language_data.xml
+    ├── EN/
+    │   ├── bc_strings.xml
+    │   ├── language_data.xml
+    ├── SP/
+        ├── bc_strings.xml
+        ├── language_data.xml
+```
+
+The English language acts as the fallback embedded in code, while BR and SP use XML localization.
+
+---
+
+## 6. Persistence and Data Handling
+
+- All financial data is stored within the campaign save file as JSON (`Bank.StorageJson`).
+- `BankStorage` serializes safely via Newtonsoft.Json with null protection.
+- Legacy data compatibility is maintained for older save structures.
+
+---
+
+## 7. Economic Simulation Logic
+
+### 7.1 Savings Interest
+Interest rate per city depends on:
+```
+AnnualInterest = Prosperity / 400
+DailyInterest = AnnualInterest / 120
+```
+This ensures realistic growth tied to in-game economy.
+
+### 7.2 Loan Credit System
+Loan parameters depend on:
+- **Prosperity** (affects available credit and lower interest)
+- **Renown** (increases credit and reduces late fees)
+- **Installments** (higher terms slightly increase total interest)
+
+Capped and smoothed with logarithmic factors to avoid exploits or runaway growth.
+
+---
+
+## 8. Extensibility and Integration
+
+The system is designed for modular growth:
+- Future support for **city treasuries**, **investments**, or **interest rate events**.
+- Possible integration with third-party mods via public `BankStorage` accessors.
+- Each menu and behavior can be registered independently.
+
+---
+
+## 9. Development Guidelines
+
+### 9.1 Code Style
+- Follows C# 10 conventions with clear naming and region markers.
+- Comments are bilingual (English logic, Portuguese explanations).
+
+### 9.2 Build Notes
+- Target Framework: `.NET Framework 4.7.2` (Bannerlord compatibility).
+- Output: DLL placed in `/bin/Win64_Shipping_Client/Modules/BanksOfCalradia/`.
+- Requires `Newtonsoft.Json` and TaleWorlds libraries from Bannerlord SDK.
+
+### 9.3 Safe Compilation
+Ensure references are properly configured to the game’s binaries:
+```
+Mount & Blade II Bannerlord\bin\Win64_Shipping_Client\
+Mount & Blade II Bannerlord\Modules\Native\
+Mount & Blade II Bannerlord\Modules\SandBox\
+```
+
+---
+
+## 10. Authors and Credits
+
+**Author:** Henrique “Dahaka” Wegher  
+**Version:** 2.6.0 — Localization + Stability overhaul  
+**License:** MIT (optional open distribution)  
+
+---
+
+## 11. Repository Structure Summary
 ```
 BanksOfCalradia/
 ├── Source/
@@ -88,22 +185,19 @@ BanksOfCalradia/
 │   ├── UI/
 │   ├── SubModule.cs
 ├── ModuleData/
-│   └── Languages/
-│       ├── BR/
-│       ├── EN/
-│       ├── SP/
+│   ├── Languages/
+│   │   ├── BR/
+│   │   ├── EN/
+│   │   ├── SP/
+├── BanksOfCalradia.csproj
+├── Directory.Build.props
+├── SubModule.xml
 └── README.md
 ```
 
 ---
 
-## Author & Credits
-**Author:** Dahaka  
-**Version:** 1.0.0 (Official Release)  
-**License:** MIT — free for modification and distribution.
+## 12. Summary
 
----
-
-### Summary
-**Banks of Calradia** introduces a deep, realistic financial framework to Bannerlord’s medieval economy — blending immersive simulation, passive skill growth, and a responsive world economy.  
-Its modular design ensures clarity, stability, and easy extensibility for future expansions.
+Banks of Calradia introduces a deep, realistic financial framework into Bannerlord — balancing player risk, economic simulation, and in-game rewards.  
+Its modular design allows developers to extend or adapt the system without compromising stability or compatibility.
