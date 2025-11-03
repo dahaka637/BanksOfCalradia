@@ -1,9 +1,10 @@
 ﻿// ============================================
 // BanksOfCalradia - BankLoanProcessor.cs
 // Author: Dahaka
-// Version: 1.3.1 (Stable Release - Safe Logging)
+// Version: 1.4.0 (Grace Period + Safe Logging)
 // Description:
 //   Processamento diário dos empréstimos do jogador.
+//   - Período de carência: só começa a cobrar 5 dias após contratar
 //   - Cobra parcelas
 //   - Faz pagamento integral ou parcial
 //   - Aplica multa e congelamento ao exceder o teto
@@ -34,6 +35,9 @@ namespace BanksOfCalradia.Source.Systems.Processing
 #else
         private const bool VERBOSE_LOG = false;
 #endif
+
+        // Período de carência (em dias de campanha) antes da 1ª cobrança
+        private const int LOAN_GRACE_PERIOD_DAYS = 5;
 
         // ============================================================
         // Registro de eventos
@@ -98,12 +102,45 @@ namespace BanksOfCalradia.Source.Systems.Processing
             int totalContracts = 0, fullyPaidToday = 0, installmentsPaid = 0, partials = 0, penalties = 0;
             List<string> toRemove = new();
 
+            float currentDay = (float)CampaignTime.Now.ToDays;
+
+
             foreach (var loan in loans)
             {
+                // Contratos já quitados ou expirados saem do fluxo
                 if (loan.Remaining <= 0.01f || loan.DurationDays <= 0)
                 {
                     if (loan.Remaining <= 0.01f)
                         toRemove.Add(loan.LoanId);
+                    continue;
+                }
+
+                // ------------------ Compatibilidade c/ contratos antigos ------------------
+                // Se CreatedAt não foi populado na contratação (versões antigas),
+                // marcamos como "antigo" atribuindo uma data suficiente para não aplicar carência retroativa.
+                if (loan.CreatedAt <= 0f)
+                {
+                    // Considera “contrato antigo” (sem carência retroativa)
+                    loan.CreatedAt = currentDay - LOAN_GRACE_PERIOD_DAYS;
+                }
+
+                // ------------------ Período de carência ------------------
+                float diasDesdeContratacao = currentDay - loan.CreatedAt;
+                if (diasDesdeContratacao < LOAN_GRACE_PERIOD_DAYS)
+                {
+                    // Ainda dentro da carência → não cobra hoje
+                    int restantes = (int)MathF.Ceiling(LOAN_GRACE_PERIOD_DAYS - diasDesdeContratacao);
+                    var graceMsg = L.T("loan_grace_period",
+                        "Loan is under grace period. {DAYS} day(s) remaining before first charge.");
+                    graceMsg.SetTextVariable("DAYS", Math.Max(restantes, 1));
+
+                    if (GAMEPLAY_MESSAGES)
+                    {
+                        InformationManager.DisplayMessage(new InformationMessage(
+                            graceMsg.ToString(), Color.FromUint(0xFFAAAAFF)));
+                    }
+
+                    // Não aplica multas durante a carência
                     continue;
                 }
 
@@ -275,9 +312,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
 
             if (paidAmount > 0)
             {
-                // Ícone ilustrativo (não renderiza em InformationMessage, mas pode ser mantido para consistência visual)
                 string icon = "<img src=\"General\\Icons\\Coin@2x\" extend=\"8\">";
-                // Aqui vai SEM o "bank_"
                 string prefix = L.S("loan_installment_paid_icon", "Installment paid:");
                 string paidLine = prefix + " -" + BankUtils.FmtDenars(paidAmount) + " " + icon;
 
@@ -292,10 +327,6 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 Color.FromUint(0xFFEEEEEE)
             ));
         }
-
-
-
-
 
         private static void ShowPenalty(string msg)
         {

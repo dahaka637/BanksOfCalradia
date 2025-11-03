@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" type="string">
+  <tags>
+    <tag language="DE" />
+  </tags>
+  <strings>
+    <string id="bank_mod_boot_ok" text="[BanksOfCalradia] Mod erfolgreich geladen." />
+    <string id="bank_mod_init_ok" text="[BanksOfCalradia] Hauptsysteme erfolgreich initialisiert." />
+    <string id="bank_data_load_fail" text="[BanksOfCalradia] Fehler beim Laden der gespeicherten Daten. Neue Instanz wird erstellt." />
+    <string id="bank_visit_option" text="Die Bank besuchen" />
+    <string id="bank_open_savings" text="Sparkonto öffnen" />
+    <string id="bank_open_loans" text="Kreditdienste aufrufen" />
+    <string id="bank_return_city" text="Zurück zur Stadt" />
+    <string id="bank_default_city" text="Stadt" />
+    <string id="bank_visit_label" text="Die Bank von {CITY} besuchen" />
+    <string id="bank_menu_text" text="Bank von {CITY}&#10;&#10;Willkommen bei der Stadtbank.&#10;&#10;Wähle unten eine Option, um deine Ressourcen zu verwalten:&#10;&#10;- Sparkonto öffnen&#10;- Kreditdienste&#10;- Zurück zur Stadt" />
+    <string id="bank_trade_xp_gain" text="+{AMOUNT} Handels-XP durch Bankgewinne erhalten." />
+    <string id="bank_trade_xp_error" text="[BanksOfCalradia][Handels-XP-Fehler] {ERROR}" />
+    <string id="bank_finance_interest" text="Bankzinsen" />
+    <string id="bank_finance_interest_city" text="Bankzinsen ({CITY})" />
+    <string id="bank_loan_payment_city" text="Kreditzahlung ({CITY})" />
+    <string id="bank_loan_processor_error" text="[BanksOfCalradia][Kredite] Fehler bei der täglichen Verarbeitung: {ERROR}" />
+    <string id="bank_loan_installment_paid" text="Rate bezahlt: -{AMOUNT}" />
+    <string id="bank_loan_payment_info" text="Kredit der Bank von {CITY}: verbleibende Schuld {AMOUNT} | Verbleibende Raten: {INSTALLMENTS}" />
+    <string id="bank_loan_partial_payment" text="Teilzahlung: {PAID} | Verbleibend vor Strafgebühr: {REMAINING}" />
+    <string id="bank_loan_penalty_applied" text="Verspätungsgebühr von {RATE} angewendet ({FEE}). Neuer Restbetrag: {AMOUNT}" />
+    <string id="bank_loan_penalty_frozen" text="Tägliche Strafgebühr eingefroren, nachdem das 10-fache des Vertragswertes mit Zinsen überschritten wurde." />
+    <string id="bank_loan_fully_paid" text="Kredit vollständig zurückgezahlt. Vertrag entfernt." />
+    <string id="bank_loan_process_summary" text="[Kredit] Verarbeitet: {TOTAL} | Vollständig: {FULL} | Teilweise: {PARTIAL} | Strafen: {PENALTIES} | Heute bezahlt: {PAIDTODAY}" />
+    <string id="bank_loan_city_unknown" text="Unbekannte Stadt" />
+    <string id="bank_loan_menu_loading" text="Bankkredit-Informationen werden geladen..." />
+    <string id="bank_loan_menu_title" text="Bank von {CITY} — Kredit" />
+    <string id="bank_loan_menu_body" text="Bank von {CITY} — Kredit&#10;&#10;• Geschätzter Zinssatz (12x): {INTEREST}&#10;• Tägliche Verspätungsgebühr: {LATEFEE}&#10;• Verfügbarer Kredit: {CREDIT}&#10;• Aktive Schuld: {DEBT}&#10;&#10;{SEP}&#10;&#10;Wähle unten eine Option." />
+    <string id="bank_loan_menu_option_request" text="Kredit anfordern" />
+    <string id="bank_loan_menu_option_pay" text="Vorhandene Kredite bezahlen" />
+    <string id="bank_loan_menu_option_back" text="Zurück zur Bank" />
+    <string id="bank_loan_req_loading" text="Kreditsimulation wird geladen..." />
+    <string id="bank_loan_req_title" text="Kreditanfrage — {CITY}" />
+    <string id="bank_loan_req_body" text="Kreditanfrage — Bank von {CITY}&#10;&#10;Vertragsparameter:&#10;• Beantragter Betrag: {REQ}&#10;• Raten: {INST}&#10;&#10;{SEP}&#10;&#10;Aktuelle Simulation:&#10;• Verfügbarer Kredit: {CREDIT}&#10;• Gesamter Zinssatz: {INTEREST}&#10;• Gesamt mit Zinsen: {TOTAL}&#10;• Ratenbetrag: {INSTALLMENT}&#10;• Tägliche Verspätungsgebühr: {LATEFEE}{WARN}" />
+    <string id="bank_loan_req_warn_credit" text="Achtung: Der beantragte Betrag ({REQ}) übersteigt dein verfügbares Kreditlimit ({CREDIT})." />
+    <string id="bank_loan_req_edit_amount" text="Beantragten Betrag ändern" />
+    <string id="bank_loan_req_edit_installments" text="Anzahl der Raten ändern (1–360)" />
+    <string id="bank_loan_req_confirm" text="Kredit bestätigen" />
+    <string id="bank_loan_req_back" text="Zurück" />
+    <string id="bank_loan_popup_amount_title" text="Beantragter Betrag" />
+    <string id="bank_loan_popup_amount_desc" text="Gib den gewünschten Betrag ein:" />
+    <string id="bank_loan_popup_amount_invalid" text="Ungültiger Betrag." />
+    <string id="bank_loan_popup_inst_title" text="Anzahl der Raten" />
+    <string id="bank_loan_popup_inst_desc" text="Gib die Anzahl der Raten ein (1–360):" />
+    <string id="bank_loan_popup_inst_invalid" text="Ungültige Zahl." />
+    <string id="bank_popup_confirm" text="Bestätigen" />
+    <string id="bank_popup_cancel" text="Abbrechen" />
+    <string id="bank_loan_confirm_invalid_player_or_city" text="Fehler: Ungültiger Spieler oder Stadt." />
+    <string id="bank_loan_confirm_need_amount" text="Leihbetrag zuerst festlegen." />
+    <string id="bank_loan_confirm_need_installments" text="Ratenanzahl festlegen, bevor bestätigt wird." />
+    <string id="bank_loan_confirm_exceeds_credit" text="Der beantragte Betrag übersteigt dein verfügbares Kreditlimit." />
+    <string id="bank_loan_confirm_ok" text="Kredit über {AMOUNT} erfolgreich erstellt.&#10;Gesamtzinssatz: {INTEREST}." />
+    <string id="bank_loan_confirm_error" text="Fehler beim Registrieren des Kredits: {ERROR}" />
+    <string id="bank_loan_menu_error" text="Fehler beim Laden des Kreditmenüs: {ERROR}" />
+    <string id="bank_loan_req_error" text="Fehler beim Aktualisieren der Kreditsimulation: {ERROR}" />
+    <string id="bank_loanpay_list_loading" text="Aktive Kredite werden geladen..." />
+    <string id="bank_loanpay_list_title" text="Bank von {CITY} — Aktive Kredite" />
+    <string id="bank_loanpay_list_body" text="Bank von {CITY}&#10;&#10;Aktive Schuld bei dieser Bank: {DEBT}&#10;&#10;Benutze 'Vertrag auswählen', um zu verwalten.&#10;&#10;{SEP}" />
+    <string id="bank_loanpay_list_body_empty" text="Bank von {CITY}&#10;&#10;Du hast keine offenen Kredite bei dieser Bank.&#10;&#10;{SEP}" />
+    <string id="bank_loanpay_list_pick" text="Vertrag auswählen" />
+    <string id="bank_loanpay_list_back" text="Zurück zur Bank" />
+    <string id="bank_loanpay_picker_title" text="Vertrag auswählen" />
+    <string id="bank_loanpay_picker_desc" text="Wähle einen Vertrag, um Details anzuzeigen und Zahlungen vorzunehmen." />
+    <string id="bank_loanpay_picker_item" text="Vertrag {INDEX} — Verbleibend: {AMOUNT}" />
+    <string id="bank_loanpay_no_selection" text="Kein Vertrag ausgewählt." />
+    <string id="bank_loanpay_none_for_city" text="Keine aktiven Verträge zum Anzeigen." />
+    <string id="bank_loanpay_err_ctx_select" text="Fehler: Ungültiger Kontext beim Öffnen der Auswahl." />
+    <string id="bank_loanpay_err_open_picker" text="Fehler beim Öffnen der Vertragsauswahl: {ERROR}" />
+    <string id="bank_loanpay_detail_loading" text="Vertragsdetails werden geladen..." />
+    <string id="bank_loanpay_detail_title" text="Kreditdetails" />
+    <string id="bank_loading_generic" text="Wird geladen..." />
+    <string id="bank_loanpay_detail_invalid" text="Kein Vertrag ausgewählt oder Vertrag ungültig." />
+    <string id="bank_loanpay_status_paid" text="Status: Bezahlt" />
+    <string id="bank_loanpay_status_remaining" text="Verbleibend: {AMOUNT}" />
+    <string id="bank_loanpay_detail_body" text="Kreditvertrag — Bank von {CITY}&#10;&#10;• Ursprünglicher Betrag: {ORIGINAL}&#10;• {STATUS}&#10;• Fester Zinssatz: {INTEREST}&#10;• Tägliche Verspätungsgebühr: {LATEFEE}&#10;• Laufzeit (Tage): {DAYS}&#10;{SEP}&#10;{ACTION_HINT}" />
+    <string id="bank_loanpay_action_hint_pay" text="Wähle 'Diesen Kredit bezahlen', um eine Teilzahlung vorzunehmen." />
+    <string id="bank_loanpay_action_hint_done" text="Dieser Kredit ist vollständig bezahlt." />
+    <string id="bank_loanpay_detail_back" text="Zurück zur Kreditliste" />
+    <string id="bank_loanpay_detail_pay" text="Diesen Kredit bezahlen" />
+    <string id="bank_loanpay_popup_title" text="Kreditzahlung" />
+    <string id="bank_loanpay_popup_desc" text="Gib den zu zahlenden Betrag ein (Kontostand: {BAL}, verbleibend: {REM}):" />
+    <string id="bank_loanpay_invalid_value" text="Ungültiger Betrag." />
+    <string id="bank_loanpay_value_gt_zero" text="Der Betrag muss größer als null sein." />
+    <string id="bank_loanpay_not_enough_gold" text="Du hast nicht genug Gold." />
+    <string id="bank_loanpay_value_too_low" text="Zahlungsbetrag zu niedrig." />
+    <string id="bank_loanpay_insufficient_after_round" text="Unzureichende Mittel nach Rundung." />
+    <string id="bank_loanpay_payment_ok" text="Zahlung von {AMOUNT} erfolgreich abgeschlossen." />
+    <string id="bank_loanpay_now_paid" text="Kredit erfolgreich vollständig bezahlt." />
+    <string id="bank_loanpay_err_ctx" text="Fehler: Ungültiger Kontext (Verhalten/Spieler/Stadt)." />
+    <string id="bank_loanpay_not_found" text="Vertrag nicht gefunden oder ungültig." />
+    <string id="bank_loanpay_already_paid" text="Dieser Vertrag ist bereits bezahlt." />
+    <string id="bank_loanpay_err_list" text="Fehler beim Erstellen der Liste: {ERROR}" />
+    <string id="bank_loanpay_err_detail" text="Fehler beim Anzeigen der Details: {ERROR}" />
+    <string id="bank_loanpay_err_payment" text="Fehler bei der Zahlungsabwicklung: {ERROR}" />
+    <string id="bank_savings_menu_loading" text="Sparkontodaten werden geladen..." />
+    <string id="bank_savings_menu_body" text="Sparkonto — Bank von {CITY}&#10;&#10;• Jährlicher Zinssatz: {INTEREST_AA}&#10;• Täglicher Zinssatz: {INTEREST_AD}&#10;• Lokaler Wohlstand: {PROSPERITY}&#10;• Abhebungsgebühr: {WITHDRAW_FEE}&#10;• Aktuelles Guthaben: {BALANCE}&#10;" />
+    <string id="bank_savings_menu_deposit" text="Geld einzahlen" />
+    <string id="bank_savings_menu_withdraw" text="Geld abheben" />
+    <string id="bank_savings_menu_back" text="Zurück zur Bank" />
+    <string id="bank_savings_menu_error" text="[BanksOfCalradia] Fehler beim Laden des Sparkonto-Menüs: {ERROR}" />
+    <string id="bank_savings_deposit_loading" text="Wird geladen..." />
+    <string id="bank_savings_deposit_title" text="Einzahlung aufs Sparkonto — Kontostand: {BALANCE}" />
+    <string id="bank_savings_deposit_body" text="Wähle einen festen Betrag zum Einzahlen oder benutze 'Benutzerdefinierter Betrag...'.&#10;&#10;Aktueller Kontostand: {BALANCE}" />
+    <string id="bank_savings_deposit_fixed" text="Einzahlen" />
+    <string id="bank_savings_deposit_all" text="Alles einzahlen" />
+    <string id="bank_savings_deposit_custom" text="Benutzerdefinierter Betrag..." />
+    <string id="bank_savings_deposit_back" text="Zurück zum Sparkonto" />
+    <string id="bank_savings_deposit_popup_title" text="Benutzerdefinierte Einzahlung" />
+    <string id="bank_savings_deposit_popup_desc" text="Gib den einzuzahlenden Betrag ein:" />
+    <string id="bank_savings_invalid_value" text="Ungültiger Betrag." />
+    <string id="bank_savings_no_gold" text="Du hast nicht genug Gold." />
+    <string id="bank_savings_deposit_done" text="Einzahlung von {AMOUNT} abgeschlossen. Neuer Kontostand: {BALANCE}." />
+    <string id="bank_savings_withdraw_loading" text="Wird geladen..." />
+    <string id="bank_savings_withdraw_title" text="Abhebung vom Sparkonto — Kontostand: {BALANCE}" />
+    <string id="bank_savings_withdraw_body" text="Wähle einen festen Betrag zum Abheben oder benutze 'Benutzerdefinierter Betrag...'.&#10;&#10;Aktuelle Abhebungsgebühr dieser Bank: {FEE}&#10;Aktueller Kontostand: {BALANCE}" />
+    <string id="bank_savings_withdraw_fixed" text="Abheben" />
+    <string id="bank_savings_withdraw_all" text="Alles abheben" />
+    <string id="bank_savings_withdraw_custom" text="Benutzerdefinierter Betrag..." />
+    <string id="bank_savings_withdraw_back" text="Zurück zum Sparkonto" />
+    <string id="bank_savings_no_balance" text="Unzureichendes Guthaben auf dem Sparkonto." />
+    <string id="bank_savings_withdraw_popup_title" text="Benutzerdefinierte Abhebung" />
+    <string id="bank_savings_withdraw_popup_desc" text="Gib den abzuhebenden Betrag ein:" />
+    <string id="bank_savings_withdraw_done_all" text="Abhebung von {GROSS} abgeschlossen (Gebühr: {FEE} → {FEEVAL}). Erhalten: {NET}. Kontostand: {BAL}." />
+    <string id="bank_savings_withdraw_done_fixed" text="Abhebung von {GROSS} abgeschlossen (Gebühr: {FEE} → {FEEVAL}). Erhalten: {NET}. Kontostand: {BAL}." />
+    <string id="bank_savings_withdraw_done_custom" text="Abhebung von {GROSS} abgeschlossen (Gebühr: {FEE} → {FEEVAL}). Erhalten: {NET}. Kontostand: {BAL}." />
+    <string id="bank_prosperity_model_error" text="[BanksOfCalradia] Fehler im Wohlstandsmodell: {ERROR}" />
+    <string id="bank_prosperity_bank_label" text="Bankeinfluss" />
+    <string id="bank_storage_debug_header" text="[BanksOfCalradia] Speicherübersicht: Spieler: {PLAYERS}, Konten: {SAVINGS}, Kredite: {LOANS}" />
+    <string id="bank_storage_debug_savings_line" text="  • {PLAYER} → {TOWN} = {AMOUNT}" />
+    <string id="bank_ledger_new_entry" text="[BanksOfCalradia][Ledger] Neuer Eintrag: {SOURCE} | {DESC} | {AMOUNT}" />
+    <string id="bank_ledger_apply_fail_nohero" text="[BanksOfCalradia][Ledger] Transaktion konnte nicht angewendet werden: Held nicht verfügbar." />
+    <string id="bank_ledger_apply_ok" text="[BanksOfCalradia][Ledger] Transaktion angewendet: {AMOUNT} für {DESC}" />
+    <string id="bank_ledger_apply_error" text="[BanksOfCalradia][Ledger] Fehler beim Anwenden der Transaktion: {ERROR}" />
+    <string id="bank_ledger_no_behavior" text="[BanksOfCalradia][Ledger] Bankverhalten nicht gefunden." />
+    <string id="bank_ledger_interest_desc" text="Tägliche Zinsen ({TOWN})" />
+    <string id="bank_ledger_interest_label" text="Bankzinsen" />
+    <string id="bank_ledger_interest_injected" text="[BanksOfCalradia][Ledger] Bankzinsen hinzugefügt: {AMOUNT}" />
+    <string id="bank_ledger_inject_error" text="[BanksOfCalradia][Ledger] Fehler beim Hinzufügen der Zinsen: {ERROR}" />
+    <string id="bank_ledger_removed" text="[BanksOfCalradia][Ledger] Eintrag entfernt {ID}" />
+    <string id="bank_loan_installment_paid_icon" text="Rate bezahlt:" />
+    <string id="bank_loanpay_payment_ok_bonus" text="Du hast {PAID} bezahlt und einen Frühzahlungsbonus von {BONUS} erhalten!" />
+    <string id="bank_loanpay_bonus_log" text="Effektive Kosten: {COST} ({PERCENT}% gespart). Neue Schuld: {NEWDEBT}" />
+    <string id="bank_loan_confirm_popup_title" text="Kreditvertrag bestätigen" />
+    <string id="bank_loan_confirm_popup_text" text="Vorschau des Kreditvertrags — Bank von {CITY}&#10;&#10;• Beantragter Betrag: {AMOUNT}&#10;• Raten: {INSTALLMENTS}x&#10;• Zinssatz: {INTEREST}&#10;• Tägliche Verspätungsgebühr: {LATEFEE}&#10;• Gesamtrückzahlung: {TOTAL}&#10;• Ratenbetrag: {INSTALLMENT}&#10;&#10;Möchtest du diesen Vertrag bestätigen?" />
+    <string id="bank_loan_grace_period" text="Der Kredit befindet sich in der Karenzzeit. {DAYS} Tag(e) verbleiben bis zur ersten Zahlung." />
+    <string id="bank_loan_grace_over" text="Die Karenzzeit ist beendet. Die Rückzahlung des Kredits beginnt morgen." />
+  </strings>
+</base>

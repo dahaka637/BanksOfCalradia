@@ -517,24 +517,27 @@ namespace BanksOfCalradia.Source.UI
         // ------------------------------------------------------------
         // Novo algoritmo de empréstimo (versão sem curva de suavização)
         // ------------------------------------------------------------
+        // ==========================================================
+        // 🏦 BanksOfCalradia - Loan Forecast (v1.6.1 Curva Suave Calibrada)
+        // Fix: usa Math.Exp (double) com cast para float no sigmoide
+        // ==========================================================
         private static (float maxLoan, float totalInterestPct, float totalWithInterest, float installmentValue, float lateFeePct)
             CalcLoanForecastParametric(float prosperity, float renown, int installments)
         {
-            // ------------------ Parâmetros principais ------------------
             const float PESO_RENOME_VALOR = 2.5f;
             const float PESO_PROSP_VALOR = 5.0f;
-            const float PESO_RENOME_JUROS = 4.5f;
-            const float PESO_PROSP_JUROS = 1.15f;
-            const float PESO_PARCELAS_JUROS = 1.5f;
+            const float PESO_RENOME_JUROS = 2.2f;
+            const float PESO_PROSP_JUROS = 1.25f;
+            const float PESO_PARCELAS_JUROS = 1.15f;
 
             const float SUAV_RENOME = 400f;
             const float SUAV_PROSP = 7000f;
             const float SUAV_LOG = 0.9f;
 
             const float ESCALA_VALOR = 5.0f;
-            const float JUROS_BASE = 18.0f;
-            const float JUROS_MIN = 5.0f;
-            const float JUROS_MAX = 600.0f;
+            const float JUROS_BASE = 12.0f;
+            const float JUROS_MIN = 4.0f;
+            const float JUROS_MAX = 300.0f;
 
             const float MULTA_BASE = 1.15f;
             const float MULTA_ESCALA_PROSP = 1.1f;
@@ -542,23 +545,21 @@ namespace BanksOfCalradia.Source.UI
             const float MULTA_MIN = 0.5f;
             const float MULTA_MAX = 5.0f;
 
-            // ------------------ Segurança ------------------
             installments = MathF.Min(MathF.Max(installments, 1), 360);
             prosperity = MathF.Max(prosperity, 1f);
             renown = MathF.Max(renown, 1f);
 
-            // ------------------ Fatores ------------------
-            float fatorRenome = MathF.Max(0.1f, renown / SUAV_RENOME);
-            float fatorProsp = MathF.Max(0.2f, prosperity / SUAV_PROSP);
+            float fatorRenome = MathF.Log10(1f + (renown / SUAV_RENOME)) * 3.5f;
+            fatorRenome = MathF.Min(fatorRenome, 3.5f);
 
-            float efeitoRenome = MathF.Log(1f + fatorRenome * (1f / SUAV_LOG));
+            float fatorProsp = MathF.Log10(1f + (prosperity / SUAV_PROSP) * 2.0f) * 2.0f;
+
+            float efeitoRenome = MathF.Log(1f + fatorRenome * (1f / SUAV_LOG)) / 1.4f;
             float efeitoProsp = MathF.Log(1f + fatorProsp * (1f / SUAV_LOG));
 
-            // ------------------ Valor máximo liberado (sem curva / sem cap) ------------------
             float valorMax = MathF.Pow(prosperity, 0.85f) * MathF.Pow(renown, 0.7f) / ESCALA_VALOR;
             valorMax *= ((1f + efeitoProsp * PESO_PROSP_VALOR) * (1f + efeitoRenome * PESO_RENOME_VALOR)) * 2f;
 
-            // ------------------ Juros e parcelas ------------------
             float risco = ((1f / (1f + efeitoProsp * PESO_PROSP_JUROS))
                          + (1f / (1f + efeitoRenome * PESO_RENOME_JUROS))) / 2f;
 
@@ -566,25 +567,31 @@ namespace BanksOfCalradia.Source.UI
             float jurosFinal = JUROS_BASE * risco * fatorParcelas;
             jurosFinal = MathF.Clamp(jurosFinal, JUROS_MIN, JUROS_MAX);
 
+            // Desconto suave por renome (sigmoide)
+            // Usa Math.Exp(double) por compatibilidade e faz cast para float
+            float x = MathF.Max(1f, renown);
+            float expTerm = (float)System.Math.Exp((x - 600f) / 220f);
+            float s = 1f / (1f + expTerm);               // decresce com renome
+            float fatorDescontoRenome = 0.60f + 0.60f * s; // [0.60, 1.20]
+            fatorDescontoRenome = MathF.Min(1.20f, MathF.Max(0.60f, fatorDescontoRenome));
+            jurosFinal *= fatorDescontoRenome;
+
             float valorTotal = valorMax * (1f + jurosFinal / 100f);
             float valorParcela = valorTotal / installments;
 
-            // ------------------ Multa diária ------------------
             float fatorMultaProsp = MathF.Pow(prosperity / SUAV_PROSP, 0.7f);
             float fatorMultaRenome = MathF.Pow(1.2f, -(renown / SUAV_RENOME));
             float multa = MULTA_BASE + fatorMultaProsp * MULTA_ESCALA_PROSP * (fatorMultaRenome / MULTA_ESCALA_RENOME);
             multa = MathF.Clamp(multa, MULTA_MIN, MULTA_MAX);
 
-            // ------------------ Arredondamentos finais ------------------
             static float ArredondarBonito(float v) => MathF.Round(v / 50f) * 50f;
-
             float valorMaxR = ArredondarBonito(valorMax);
             float valorTotalR = MathF.Round(valorTotal);
             float valorParcelaR = MathF.Round(valorParcela);
 
-            // ------------------ Retorno ------------------
             return (valorMaxR, jurosFinal, valorTotalR, valorParcelaR, multa);
         }
+
 
 
 

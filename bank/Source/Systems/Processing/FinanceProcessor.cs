@@ -141,7 +141,6 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 // ============================================================
                 // 💹 CÁLCULO DE POUPANÇA (Curva Calibrada Premium)
                 // ============================================================
-                const float fator = 350f;
                 const float prosperidadeBase = 5000f;
                 const float prosperidadeAlta = 6000f;
                 const float prosperidadeMax = 10000f;
@@ -246,10 +245,28 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 if (loans == null || loans.Count == 0)
                     return;
 
+                float currentDay = (float)CampaignTime.Now.ToDays;
+                const int GRACE_DAYS = 5; // mesmo valor do BankLoanProcessor
+
                 foreach (var loan in loans)
                 {
                     if (loan.Remaining <= 0.01f || loan.DurationDays <= 0)
                         continue;
+
+                    // ------------------ Compat c/ contratos antigos ------------------
+                    if (loan.CreatedAt <= 0f)
+                    {
+                        // Marca como “antigo”: não aplica carência retroativa
+                        loan.CreatedAt = currentDay - GRACE_DAYS;
+                    }
+
+                    // ------------------ Verificação do período de carência ------------------
+                    float diasDesdeContratacao = currentDay - loan.CreatedAt;
+                    if (diasDesdeContratacao < GRACE_DAYS)
+                    {
+                        // Ainda no período de carência → não exibe previsão de débito
+                        continue;
+                    }
 
                     int daysRemaining = Math.Max(loan.DurationDays, 1);
                     int due = MathF.Ceiling(loan.Remaining / daysRemaining);
@@ -262,15 +279,16 @@ namespace BanksOfCalradia.Source.Systems.Processing
                     var label = L.T("loan_payment_city", "Loan payment ({CITY})");
                     label.SetTextVariable("CITY", townName);
 
-                    // Linha informativa, não queremos esconder o valor
+                    // Linha informativa — apenas visual, não afeta simulação
                     goldChange.Add(-due, label);
                 }
             }
             catch
             {
-                // silencioso: não quebrar o painel
+                // silencioso: não quebrar o painel de finanças
             }
         }
+
 
         // =========================================================
         // Logger utilitário (usado só em DEBUG)

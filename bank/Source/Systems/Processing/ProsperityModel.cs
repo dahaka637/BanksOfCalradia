@@ -1,21 +1,21 @@
 ﻿// ============================================
 // BanksOfCalradia - BankProsperityModel.cs
 // Author: Dahaka
-// Version: 1.2.0 (Stable Release - Safe & Optimized)
+// Version: 1.6.0 (Smart Food Sustainability Dampener)
 // Description:
-//   Injects prosperity forecast from players' savings,
-//   using the same logic as BankFinanceProcessor.
-//
-//   • Integrates with SettlementProsperityModel
-//   • Adds daily forecast to Expected Change
-//   • Fully safe and non-blocking for Campaign boot
+//   • Mantém todo o cálculo base da versão 1.5.2
+//   • Introduz amortecimento suave baseado em ExpectedFoodChange
+//   • Reduz dinamicamente o ganho de prosperidade conforme o risco de fome aumenta
+//   • Evita saturação econômica e colapso alimentar
 // ============================================
 
 using BanksOfCalradia.Source.Core;
 using BanksOfCalradia.Source.Systems;
 using System;
+using System.Linq;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.GameComponents;
+using TaleWorlds.CampaignSystem.Issues;
 using TaleWorlds.CampaignSystem.Settlements;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
@@ -25,133 +25,148 @@ namespace BanksOfCalradia.Source.Systems.Processing
 {
     public class BankProsperityModel : DefaultSettlementProsperityModel
     {
-        // Configuração: controle de mensagens e logs
+        internal const float MIN_SUSTAINABILITY = 0.10f;
+        internal const float MAX_DIVERSION = 0.85f;
+        internal const float FOOD_GAIN_MULTIPLIER = 3.25f;
+        internal const float MAX_FOOD_PER_DAY_CAP = 120f;
+        internal const float TARGET_STOCK_BUFFER = 200f;
         private const bool DEBUG_MODE = false;
 
         public override ExplainedNumber CalculateProsperityChange(Town town, bool includeDescriptions = false)
         {
-            // Base calculation from the native model
             var result = base.CalculateProsperityChange(town, includeDescriptions);
-
             try
             {
-                AddBankProsperityForecast(town, ref result, includeDescriptions);
+                var fx = ComputeBankEffects(town);
+                if (fx.FinalProsperityGain > 0.00005f)
+                {
+                    var labelPros = L.T("prosperity_bank_label", "Bank influence");
+                    result.Add(fx.FinalProsperityGain, labelPros);
+                }
             }
             catch (Exception ex)
             {
-                #if DEBUG
-                var msg = L.T("prosperity_model_error", "[BanksOfCalradia] Prosperity model error: {ERROR}");
-                msg.SetTextVariable("ERROR", ex.Message);
-
                 InformationManager.DisplayMessage(new InformationMessage(
-                    msg.ToString(),
+                    $"[BoC][ERROR] Prosperity calc failed for {town?.Name}: {ex.Message}",
                     Color.FromUint(0xFFFF5555)
                 ));
-                #endif
             }
-
             return result;
         }
 
-        // =====================================================
-        // Bank prosperity forecast (Curva Calibrada Premium)
-        // =====================================================
-        private void AddBankProsperityForecast(Town town, ref ExplainedNumber result, bool includeDescriptions)
+        internal static BankEffects ComputeBankEffects(Town town)
         {
+            BankEffects fx = new();
             if (town == null || Campaign.Current == null)
-                return;
+                return fx;
 
             var behavior = Campaign.Current.GetCampaignBehavior<BankCampaignBehavior>();
             if (behavior == null)
-                return;
+                return fx;
 
             var storage = behavior.GetStorage();
             if (storage == null || storage.SavingsByPlayer.Count == 0)
-                return;
+                return fx;
 
+            bool hasInvestment = storage.SavingsByPlayer
+                .SelectMany(kvp => kvp.Value)
+                .Any(acc => acc.TownId == town.Settlement.StringId && acc.Amount > 0.01f);
+
+            if (!hasInvestment)
+                return fx;
+
+            // === Ganho bancário bruto (Curva Calibrada Premium simplificada) ===
             float totalGain = 0f;
-
             foreach (var kvp in storage.SavingsByPlayer)
             {
-                var accounts = kvp.Value;
-                if (accounts == null || accounts.Count == 0)
-                    continue;
-
-                foreach (var acc in accounts)
+                foreach (var acc in kvp.Value)
                 {
-                    // Filtra contas inválidas ou sem saldo relevante
                     if (acc.Amount <= 0.01f || acc.TownId != town.Settlement.StringId)
                         continue;
 
                     float prosperity = MathF.Max(town.Prosperity, 1f);
-
-                    // ============================================================
-                    // 💹 CÁLCULO DE PROSPERIDADE (Curva Calibrada Premium)
-                    // ============================================================
-                    const float fator = 350f;
                     const float prosperidadeBase = 5000f;
                     const float prosperidadeAlta = 6000f;
                     const float prosperidadeMax = 10000f;
 
-                    // --- Fator suavizador ---
                     float rawSuavizador = prosperidadeBase / prosperity;
                     float fatorSuavizador = 0.7f + (rawSuavizador * 0.7f);
-
-                    // --- Incentivo de pobreza ---
                     float pobrezaRatio = MathF.Max(0f, (prosperidadeBase - prosperity) / prosperidadeBase);
-                    float incentivoPobreza = MathF.Pow(pobrezaRatio, 1.05f) * 0.15f; // até +15% em cidades muito pobres
-
-                    // --- Penalidade de riqueza ---
+                    float incentivoPobreza = MathF.Pow(pobrezaRatio, 1.05f) * 0.15f;
                     float penalidadeRiqueza = 0f;
+
                     if (prosperity > prosperidadeAlta)
                     {
                         float excesso = (prosperity - prosperidadeAlta) / (prosperidadeMax - prosperidadeAlta);
-                        excesso = MathF.Max(0f, excesso);
-                        penalidadeRiqueza = MathF.Pow(excesso, 1f) * 0.025f; // até -2.5% máximo
+                        penalidadeRiqueza = MathF.Pow(MathF.Max(0f, excesso), 1f) * 0.025f;
                     }
 
-                    // ============================================================
-                    // 🏙️ Ganho de prosperidade diário real
-                    // ============================================================
                     float ganhoBase = MathF.Pow(acc.Amount / 1_000_000f, 0.55f);
                     float fatorProsperidade = MathF.Pow(6000f / (prosperity + 3000f), 0.3f);
 
-                    float ganhoPrevisto = MathF.Round(
-                        ganhoBase
-                        * fatorProsperidade
-                        * fatorSuavizador
-                        * 1.9f                       // boost global +90%
-                        * (1f + incentivoPobreza * 2f)
-                        * (1f - penalidadeRiqueza * 0.3f),
-                        4
-                    );
+                    float ganhoPrevisto = ganhoBase * fatorProsperidade * fatorSuavizador * 1.9f *
+                                          (1f + incentivoPobreza * 2f) * (1f - penalidadeRiqueza * 0.3f);
 
-                    totalGain += MathF.Max(0f, ganhoPrevisto);
+                    totalGain += MathF.Max(0f, MathF.Round(ganhoPrevisto, 4));
                 }
             }
 
-            if (totalGain > 0.0001f)
+            fx.TotalGain = totalGain;
+
+            // === Avalia expectativa de comida ===
+            float expectedFood = 0f;
+            try
             {
-                var label = L.T("prosperity_bank_label", "Bank savings influence");
-                result.Add(totalGain, label);
-
-#if DEBUG
-                if (DEBUG_MODE)
-                {
-                    var dbg = L.T("prosperity_bank_debug",
-                        "[BanksOfCalradia][DEBUG] {TOWN}: +{GAIN} prosperity/day (bank forecast)");
-                    dbg.SetTextVariable("TOWN", town.Name?.ToString() ?? L.S("default_city", "City"));
-                    dbg.SetTextVariable("GAIN", totalGain.ToString("0.0000"));
-
-                    InformationManager.DisplayMessage(new InformationMessage(
-                        dbg.ToString(),
-                        Color.FromUint(0xFFAACCEE)
-                    ));
-                }
-#endif
+                var foodModel = Campaign.Current.Models.SettlementFoodModel;
+                if (foodModel != null)
+                    expectedFood = foodModel.CalculateTownFoodStocksChange(town, true, false).ResultNumber;
             }
+            catch { expectedFood = 0f; }
+
+            // === Curva de amortecimento suave ===
+            float sustainFactor;
+            if (expectedFood >= 10f)
+                sustainFactor = 1f;
+            else if (expectedFood > 0f)
+                sustainFactor = MathF.Pow(expectedFood / 10f, 1.5f);
+            else
+                sustainFactor = 0f;
+
+            // === Calcula o ganho ajustado ===
+            float adjustedGain = totalGain * sustainFactor;
+            fx.FinalProsperityGain = adjustedGain;
+
+            // === Debug opcional ===
+            if (DEBUG_MODE)
+            {
+                string msg = $"[BoC][Sustain-Damp] {town.Name} | Food={expectedFood:+0.00;-0.00} | " +
+                             $"RawGain={totalGain:0.0000} | Sustain={sustainFactor:0.00} | Final={adjustedGain:0.0000}";
+                InformationManager.DisplayMessage(new InformationMessage(msg, Color.FromUint(0xFF88FF55)));
+            }
+
+            return fx;
         }
 
+        internal class BankEffects
+        {
+            public float TotalGain;
+            public float Sustainability;
+            public float DiversionRatio;
+            public float FinalProsperityGain;
+            public float FoodPerDay;
+            public float CurrentFood;
+            public float HungerSeverity;
+        }
+    }
 
+    // =====================================================
+    // Debug wrapper opcional (mantido para compatibilidade)
+    // =====================================================
+    public class BankIssueModel : DefaultIssueModel
+    {
+        public override void GetIssueEffectsOfSettlement(IssueEffect effect, Settlement settlement, ref ExplainedNumber explainedNumber)
+        {
+            base.GetIssueEffectsOfSettlement(effect, settlement, ref explainedNumber);
+        }
     }
 }

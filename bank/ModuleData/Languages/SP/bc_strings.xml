@@ -4,62 +4,44 @@
     <tag language="SP" />
   </tags>
   <strings>
-    <!-- Inicialización -->
     <string id="bank_mod_boot_ok" text="[BanksOfCalradia] Mod cargado correctamente." />
     <string id="bank_mod_init_ok" text="[BanksOfCalradia] Sistemas principales inicializados correctamente." />
     <string id="bank_data_load_fail" text="[BanksOfCalradia] Error al cargar los datos guardados. Creando una nueva instancia." />
-
-    <!-- Menú principal / visitas -->
     <string id="bank_visit_option" text="Visitar el Banco" />
     <string id="bank_open_savings" text="Acceder a la Cuenta de Ahorros" />
     <string id="bank_open_loans" text="Acceder a los Servicios de Préstamos" />
     <string id="bank_return_city" text="Regresar a la Ciudad" />
     <string id="bank_default_city" text="Ciudad" />
     <string id="bank_visit_label" text="Visitar el Banco de {CITY}" />
-
     <string id="bank_menu_text" text="Banco de {CITY}&#10;&#10;Bienvenido al banco de la ciudad.&#10;&#10;Elige una opción a continuación para gestionar tus recursos:&#10;&#10;- Acceder a la Cuenta de Ahorros&#10;- Servicios de Préstamos&#10;- Volver a la Ciudad" />
-
-    <!-- XP de comercio -->
     <string id="bank_trade_xp_gain" text="+{AMOUNT} XP de Comercio obtenidos con beneficios bancarios." />
     <string id="bank_trade_xp_error" text="[BanksOfCalradia][Error XP Comercio] {ERROR}" />
-
-    <!-- Finanzas en el panel -->
     <string id="bank_finance_interest" text="Rendimientos bancarios" />
     <string id="bank_finance_interest_city" text="Rendimientos bancarios ({CITY})" />
-
     <string id="bank_loan_payment_city" text="Pago de préstamo ({CITY})" />
-
-    <!-- Procesador de préstamos -->
     <string id="bank_loan_processor_error" text="[BanksOfCalradia][Préstamos] Error en el procesamiento diario: {ERROR}" />
     <string id="bank_loan_installment_paid" text="Cuota pagada: -{AMOUNT}" />
     <string id="bank_loan_payment_info" text="Préstamo del banco de {CITY}: deuda restante {AMOUNT} | Cuotas restantes: {INSTALLMENTS}" />
     <string id="bank_loan_partial_payment" text="Pago parcial: {PAID} | Restante antes de la multa: {REMAINING}" />
-	 <string id="bank_loan_penalty_applied" text="Multa por retrasode {RATE} aplicada ({FEE}). Nuevo saldo: {AMOUNT}" />
+	  <string id="bank_loan_penalty_applied" text="Multa por retrasode {RATE} aplicada ({FEE}). Nuevo saldo: {AMOUNT}" />
     <string id="bank_loan_penalty_frozen" text="Multa diaria congelada tras superar 10× el valor contratado con intereses." />
     <string id="bank_loan_fully_paid" text="Préstamo pagado completamente. Contrato eliminado." />
     <string id="bank_loan_process_summary" text="[Préstamo] Procesados: {TOTAL} | Completos: {FULL} | Parciales: {PARTIAL} | Multas: {PENALTIES} | Pagados hoy: {PAIDTODAY}" />
     <string id="bank_loan_city_unknown" text="Ciudad desconocida" />
-
-    <!-- Menú de préstamos -->
     <string id="bank_loan_menu_loading" text="Cargando información bancaria de préstamos..." />
     <string id="bank_loan_menu_title" text="Banco de {CITY} — Crédito" />
     <string id="bank_loan_menu_body" text="Banco de {CITY} — Crédito&#10;&#10;• Interés estimado (12x): {INTEREST}&#10;• Multa diaria por retraso: {LATEFEE}&#10;• Crédito disponible: {CREDIT}&#10;• Deuda activa: {DEBT}&#10;&#10;{SEP}&#10;&#10;Selecciona una opción a continuación." />
     <string id="bank_loan_menu_option_request" text="Solicitar préstamo" />
     <string id="bank_loan_menu_option_pay" text="Pagar préstamos" />
     <string id="bank_loan_menu_option_back" text="Volver al Banco" />
-
-    <!-- Solicitud de préstamo -->
     <string id="bank_loan_req_loading" text="Cargando simulación de préstamo..." />
     <string id="bank_loan_req_title" text="Solicitar Préstamo — {CITY}" />
     <string id="bank_loan_req_body" text="Solicitud de Préstamo — Banco de {CITY}&#10;&#10;Parámetros del contrato:&#10;• Monto solicitado: {REQ}&#10;• Cuotas: {INST}&#10;&#10;{SEP}&#10;&#10;Simulación actual:&#10;• Crédito disponible: {CREDIT}&#10;• Tasa total de interés: {INTEREST}&#10;• Total con intereses: {TOTAL}&#10;• Valor por cuota: {INSTALLMENT}&#10;• Multa diaria por retraso: {LATEFEE}{WARN}" />
     <string id="bank_loan_req_warn_credit" text="Atención: el monto solicitado ({REQ}) supera tu crédito disponible ({CREDIT})." />
-
     <string id="bank_loan_req_edit_amount" text="Cambiar monto solicitado" />
     <string id="bank_loan_req_edit_installments" text="Cambiar número de cuotas (1–240)" />
     <string id="bank_loan_req_confirm" text="Confirmar préstamo" />
     <string id="bank_loan_req_back" text="Volver" />
-
-    <!-- Popups de préstamo -->
     <string id="bank_loan_popup_amount_title" text="Monto solicitado" />
     <string id="bank_loan_popup_amount_desc" text="Introduce el monto deseado:" />
     <string id="bank_loan_popup_amount_invalid" text="Monto inválido." />
@@ -68,8 +50,6 @@
     <string id="bank_loan_popup_inst_invalid" text="Número inválido." />
     <string id="bank_popup_confirm" text="Confirmar" />
     <string id="bank_popup_cancel" text="Cancelar" />
-
-    <!-- Confirmación y errores de préstamo -->
     <string id="bank_loan_confirm_invalid_player_or_city" text="Error: jugador o ciudad no válidos." />
     <string id="bank_loan_confirm_need_amount" text="Define primero el monto del préstamo." />
     <string id="bank_loan_confirm_need_installments" text="Define el número de cuotas antes de confirmar." />
@@ -78,16 +58,12 @@
     <string id="bank_loan_confirm_error" text="Error al registrar el préstamo: {ERROR}" />
     <string id="bank_loan_menu_error" text="Error al cargar el menú de préstamos: {ERROR}" />
     <string id="bank_loan_req_error" text="Error al actualizar la simulación de préstamo: {ERROR}" />
-
-    <!-- Lista de préstamos activos -->
     <string id="bank_loanpay_list_loading" text="Cargando préstamos activos..." />
     <string id="bank_loanpay_list_title" text="Banco de {CITY} — Préstamos Activos" />
     <string id="bank_loanpay_list_body" text="Banco de {CITY}&#10;&#10;Deuda activa con este banco: {DEBT}&#10;&#10;Usa 'Seleccionar contrato' para elegir cuál deseas gestionar.&#10;&#10;{SEP}" />
     <string id="bank_loanpay_list_body_empty" text="Banco de {CITY}&#10;&#10;No tienes préstamos pendientes en este banco.&#10;&#10;{SEP}" />
     <string id="bank_loanpay_list_pick" text="Seleccionar contrato" />
     <string id="bank_loanpay_list_back" text="Volver al Banco" />
-
-    <!-- Selector de contratos -->
     <string id="bank_loanpay_picker_title" text="Seleccionar Contrato" />
     <string id="bank_loanpay_picker_desc" text="Elige un contrato para ver los detalles y realizar pagos." />
     <string id="bank_loanpay_picker_item" text="Contrato {INDEX} — Restante: {AMOUNT}" />
@@ -95,8 +71,6 @@
     <string id="bank_loanpay_none_for_city" text="No hay contratos activos para mostrar." />
     <string id="bank_loanpay_err_ctx_select" text="Error: contexto no válido al abrir la selección." />
     <string id="bank_loanpay_err_open_picker" text="Error al abrir la selección de contratos: {ERROR}" />
-
-    <!-- Detalles del contrato -->
     <string id="bank_loanpay_detail_loading" text="Cargando detalles del contrato..." />
     <string id="bank_loanpay_detail_title" text="Detalles del Préstamo" />
     <string id="bank_loading_generic" text="Cargando..." />
@@ -108,8 +82,6 @@
     <string id="bank_loanpay_action_hint_done" text="Este préstamo está totalmente pagado." />
     <string id="bank_loanpay_detail_back" text="Volver a la lista de préstamos" />
     <string id="bank_loanpay_detail_pay" text="Pagar este préstamo" />
-
-    <!-- Pago del contrato -->
     <string id="bank_loanpay_popup_title" text="Pago de Préstamo" />
     <string id="bank_loanpay_popup_desc" text="Introduce el valor a pagar (saldo: {BAL}, restante: {REM}):" />
     <string id="bank_loanpay_invalid_value" text="Valor inválido." />
@@ -125,16 +97,12 @@
     <string id="bank_loanpay_err_list" text="Error al crear la lista: {ERROR}" />
     <string id="bank_loanpay_err_detail" text="Error al mostrar los detalles: {ERROR}" />
     <string id="bank_loanpay_err_payment" text="Error al procesar el pago: {ERROR}" />
-
-    <!-- Poupança / Ahorros -->
     <string id="bank_savings_menu_loading" text="Cargando datos de la cuenta de ahorros..." />
     <string id="bank_savings_menu_body" text="Ahorros — Banco de {CITY}&#10;&#10;• Tasa de interés anual: {INTEREST_AA}&#10;• Tasa de interés diaria: {INTEREST_AD}&#10;• Prosperidad local: {PROSPERITY}&#10;• Tasa de retiro: {WITHDRAW_FEE}&#10;• Saldo actual: {BALANCE}&#10;" />
     <string id="bank_savings_menu_deposit" text="Depositar Dinero" />
     <string id="bank_savings_menu_withdraw" text="Retirar Dinero" />
     <string id="bank_savings_menu_back" text="Volver al Banco" />
     <string id="bank_savings_menu_error" text="[BanksOfCalradia] Error al cargar el menú de ahorros: {ERROR}" />
-
-    <!-- Depósitos -->
     <string id="bank_savings_deposit_loading" text="Cargando..." />
     <string id="bank_savings_deposit_title" text="Depósito en Ahorros — Saldo bancario: {BALANCE}" />
     <string id="bank_savings_deposit_body" text="Selecciona un valor fijo para depositar o usa 'Valor personalizado...'.&#10;&#10;Saldo bancario actual: {BALANCE}" />
@@ -147,8 +115,6 @@
     <string id="bank_savings_invalid_value" text="Valor inválido." />
     <string id="bank_savings_no_gold" text="No tienes suficiente oro." />
     <string id="bank_savings_deposit_done" text="Depósito de {AMOUNT} realizado. Nuevo saldo: {BALANCE}." />
-
-    <!-- Retiros -->
     <string id="bank_savings_withdraw_loading" text="Cargando..." />
     <string id="bank_savings_withdraw_title" text="Retiro de Ahorros — Saldo bancario: {BALANCE}" />
     <string id="bank_savings_withdraw_body" text="Selecciona un valor fijo para retirar o usa 'Valor personalizado...'.&#10;&#10;Tasa de retiro actual de este banco: {FEE}&#10;Saldo bancario actual: {BALANCE}" />
@@ -162,16 +128,10 @@
     <string id="bank_savings_withdraw_done_all" text="Retiro de {GROSS} realizado (Tasa: {FEE} → {FEEVAL}). Recibido: {NET}. Saldo: {BAL}." />
     <string id="bank_savings_withdraw_done_fixed" text="Retiro de {GROSS} realizado (Tasa: {FEE} → {FEEVAL}). Recibido: {NET}. Saldo: {BAL}." />
     <string id="bank_savings_withdraw_done_custom" text="Retiro de {GROSS} realizado (Tasa: {FEE} → {FEEVAL}). Recibido: {NET}. Saldo: {BAL}." />
-
-    <!-- Modelo de prosperidad -->
     <string id="bank_prosperity_model_error" text="[BanksOfCalradia] Error en el modelo de prosperidad: {ERROR}" />
-    <string id="bank_prosperity_bank_label" text="Influencia de los ahorros bancarios" />
-
-    <!-- Debug / almacenamiento -->
+    <string id="bank_prosperity_bank_label" text="Influencia bancarios" />
     <string id="bank_storage_debug_header" text="[BanksOfCalradia] Resumen del almacenamiento: Jugadores: {PLAYERS}, Cuentas: {SAVINGS}, Préstamos: {LOANS}" />
     <string id="bank_storage_debug_savings_line" text="  • {PLAYER} → {TOWN} = {AMOUNT}" />
-
-    <!-- Ledger / libro mayor -->
     <string id="bank_ledger_new_entry" text="[BanksOfCalradia][Ledger] Nuevo asiento: {SOURCE} | {DESC} | {AMOUNT}" />
     <string id="bank_ledger_apply_fail_nohero" text="[BanksOfCalradia][Ledger] No fue posible aplicar la transacción: héroe no disponible." />
     <string id="bank_ledger_apply_ok" text="[BanksOfCalradia][Ledger] Transacción aplicada: {AMOUNT} para {DESC}" />
@@ -183,5 +143,11 @@
     <string id="bank_ledger_inject_error" text="[BanksOfCalradia][Ledger] Error al inyectar intereses: {ERROR}" />
     <string id="bank_ledger_removed" text="[BanksOfCalradia][Ledger] Asiento eliminado {ID}" />
     <string id="loan_installment_paid_icon" text="Cuota pagada: " />
+    <string id="bank_loan_grace_period" text="El préstamo está en período de carencia. Quedan {DAYS} día(s) antes del primer cobro." />
+    <string id="bank_loan_grace_over" text="El período de carencia ha terminado. El pago del préstamo comenzará mañana." />
+    <string id="bank_loanpay_payment_ok_bonus" text="¡Has pagado {PAID} y obtuviste un beneficio por pago anticipado de {BONUS}!" />
+    <string id="bank_loanpay_bonus_log" text="Costo efectivo: {COST} ({PERCENT}% de ahorro). Nueva deuda: {NEWDEBT}" />
+    <string id="bank_loan_confirm_popup_title" text="Confirmar Contrato de Préstamo" />
+    <string id="bank_loan_confirm_popup_text" text="Vista previa del Contrato de Préstamo — Banco de {CITY}&#10;&#10;• Monto solicitado: {AMOUNT}&#10;• Cuotas: {INSTALLMENTS}x&#10;• Tasa de interés: {INTEREST}&#10;• Multa diaria: {LATEFEE}&#10;• Total a pagar: {TOTAL}&#10;• Valor por cuota: {INSTALLMENT}&#10;&#10;¿Deseas confirmar este contrato?" />
   </strings>
 </base>

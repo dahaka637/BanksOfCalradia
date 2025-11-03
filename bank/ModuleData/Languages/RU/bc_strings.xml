@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" type="string">
+  <tags>
+    <tag language="RU" />
+  </tags>
+  <strings>
+    <string id="bank_mod_boot_ok" text="[BanksOfCalradia] Мод успешно загружен." />
+    <string id="bank_mod_init_ok" text="[BanksOfCalradia] Основные системы успешно инициализированы." />
+    <string id="bank_data_load_fail" text="[BanksOfCalradia] Не удалось загрузить сохранённые данные. Создаётся новый экземпляр." />
+    <string id="bank_visit_option" text="Посетить банк" />
+    <string id="bank_open_savings" text="Открыть сберегательный счёт" />
+    <string id="bank_open_loans" text="Доступ к кредитным услугам" />
+    <string id="bank_return_city" text="Вернуться в город" />
+    <string id="bank_default_city" text="Город" />
+    <string id="bank_visit_label" text="Посетить банк {CITY}" />
+    <string id="bank_menu_text" text="Банк {CITY}&#10;&#10;Добро пожаловать в городской банк.&#10;&#10;Выберите опцию ниже для управления своими средствами:&#10;&#10;- Открыть сберегательный счёт&#10;- Кредитные услуги&#10;- Вернуться в город" />
+    <string id="bank_trade_xp_gain" text="+{AMOUNT} опыта торговли получено от банковской прибыли." />
+    <string id="bank_trade_xp_error" text="[BanksOfCalradia][Ошибка опыта торговли] {ERROR}" />
+    <string id="bank_finance_interest" text="Банковские проценты" />
+    <string id="bank_finance_interest_city" text="Банковские проценты ({CITY})" />
+    <string id="bank_loan_payment_city" text="Платёж по кредиту ({CITY})" />
+    <string id="bank_loan_processor_error" text="[BanksOfCalradia][Кредиты] Ошибка при ежедневной обработке: {ERROR}" />
+    <string id="bank_loan_installment_paid" text="Выплата по взносу: -{AMOUNT}" />
+    <string id="bank_loan_payment_info" text="Кредит банка {CITY}: остаток долга {AMOUNT} | Осталось взносов: {INSTALLMENTS}" />
+    <string id="bank_loan_partial_payment" text="Частичная оплата: {PAID} | Остаток до штрафа: {REMAINING}" />
+    <string id="bank_loan_penalty_applied" text="Начислен штраф за просрочку {RATE} ({FEE}). Новый остаток: {AMOUNT}" />
+    <string id="bank_loan_penalty_frozen" text="Ежедневный штраф заморожен после превышения 10× от суммы договора с процентами." />
+    <string id="bank_loan_fully_paid" text="Кредит полностью погашен. Договор удалён." />
+    <string id="bank_loan_process_summary" text="[Кредит] Обработано: {TOTAL} | Полностью: {FULL} | Частично: {PARTIAL} | Штрафы: {PENALTIES} | Выплачено сегодня: {PAIDTODAY}" />
+    <string id="bank_loan_city_unknown" text="Неизвестный город" />
+    <string id="bank_loan_menu_loading" text="Загрузка информации о кредитах..." />
+    <string id="bank_loan_menu_title" text="Банк {CITY} — Кредит" />
+    <string id="bank_loan_menu_body" text="Банк {CITY} — Кредит&#10;&#10;• Предполагаемая ставка (12x): {INTEREST}&#10;• Ежедневный штраф за просрочку: {LATEFEE}&#10;• Доступный кредит: {CREDIT}&#10;• Активный долг: {DEBT}&#10;&#10;{SEP}&#10;&#10;Выберите опцию ниже." />
+    <string id="bank_loan_menu_option_request" text="Запросить кредит" />
+    <string id="bank_loan_menu_option_pay" text="Оплатить текущие кредиты" />
+    <string id="bank_loan_menu_option_back" text="Вернуться в банк" />
+    <string id="bank_loan_req_loading" text="Загрузка симуляции кредита..." />
+    <string id="bank_loan_req_title" text="Запрос кредита — {CITY}" />
+    <string id="bank_loan_req_body" text="Запрос кредита — Банк {CITY}&#10;&#10;Параметры договора:&#10;• Запрошенная сумма: {REQ}&#10;• Количество взносов: {INST}&#10;&#10;{SEP}&#10;&#10;Текущая симуляция:&#10;• Доступный кредит: {CREDIT}&#10;• Общая процентная ставка: {INTEREST}&#10;• Общая сумма с процентами: {TOTAL}&#10;• Сумма взноса: {INSTALLMENT}&#10;• Ежедневный штраф: {LATEFEE}{WARN}" />
+    <string id="bank_loan_req_warn_credit" text="Внимание: запрошенная сумма ({REQ}) превышает ваш доступный кредит ({CREDIT})." />
+    <string id="bank_loan_req_edit_amount" text="Изменить запрошенную сумму" />
+    <string id="bank_loan_req_edit_installments" text="Изменить количество взносов (1–360)" />
+    <string id="bank_loan_req_confirm" text="Подтвердить кредит" />
+    <string id="bank_loan_req_back" text="Назад" />
+    <string id="bank_loan_popup_amount_title" text="Запрошенная сумма" />
+    <string id="bank_loan_popup_amount_desc" text="Введите желаемую сумму:" />
+    <string id="bank_loan_popup_amount_invalid" text="Недопустимая сумма." />
+    <string id="bank_loan_popup_inst_title" text="Количество взносов" />
+    <string id="bank_loan_popup_inst_desc" text="Введите количество взносов (1–360):" />
+    <string id="bank_loan_popup_inst_invalid" text="Недопустимое значение." />
+    <string id="bank_popup_confirm" text="Подтвердить" />
+    <string id="bank_popup_cancel" text="Отмена" />
+    <string id="bank_loan_confirm_invalid_player_or_city" text="Ошибка: недопустимый игрок или город." />
+    <string id="bank_loan_confirm_need_amount" text="Сначала укажите сумму кредита." />
+    <string id="bank_loan_confirm_need_installments" text="Укажите количество взносов перед подтверждением." />
+    <string id="bank_loan_confirm_exceeds_credit" text="Запрошенная сумма превышает ваш доступный кредит." />
+    <string id="bank_loan_confirm_ok" text="Кредит на сумму {AMOUNT} успешно оформлен.&#10;Общая процентная ставка: {INTEREST}." />
+    <string id="bank_loan_confirm_error" text="Ошибка при регистрации кредита: {ERROR}" />
+    <string id="bank_loan_menu_error" text="Ошибка при загрузке меню кредитов: {ERROR}" />
+    <string id="bank_loan_req_error" text="Ошибка при обновлении симуляции кредита: {ERROR}" />
+    <string id="bank_loanpay_list_loading" text="Загрузка активных кредитов..." />
+    <string id="bank_loanpay_list_title" text="Банк {CITY} — Активные кредиты" />
+    <string id="bank_loanpay_list_body" text="Банк {CITY}&#10;&#10;Активный долг в этом банке: {DEBT}&#10;&#10;Используйте 'Выбрать договор', чтобы выбрать, какой управлять.&#10;&#10;{SEP}" />
+    <string id="bank_loanpay_list_body_empty" text="Банк {CITY}&#10;&#10;У вас нет невыплаченных кредитов в этом банке.&#10;&#10;{SEP}" />
+    <string id="bank_loanpay_list_pick" text="Выбрать договор" />
+    <string id="bank_loanpay_list_back" text="Вернуться в банк" />
+    <string id="bank_loanpay_picker_title" text="Выбор договора" />
+    <string id="bank_loanpay_picker_desc" text="Выберите договор, чтобы просмотреть детали и внести оплату." />
+    <string id="bank_loanpay_picker_item" text="Договор {INDEX} — Остаток: {AMOUNT}" />
+    <string id="bank_loanpay_no_selection" text="Договор не выбран." />
+    <string id="bank_loanpay_none_for_city" text="Нет активных договоров для отображения." />
+    <string id="bank_loanpay_err_ctx_select" text="Ошибка: неверный контекст при открытии выбора." />
+    <string id="bank_loanpay_err_open_picker" text="Ошибка при открытии выбора договора: {ERROR}" />
+    <string id="bank_loanpay_detail_loading" text="Загрузка деталей договора..." />
+    <string id="bank_loanpay_detail_title" text="Детали кредита" />
+    <string id="bank_loading_generic" text="Загрузка..." />
+    <string id="bank_loanpay_detail_invalid" text="Договор не выбран или недействителен." />
+    <string id="bank_loanpay_status_paid" text="Статус: Выплачен" />
+    <string id="bank_loanpay_status_remaining" text="Остаток: {AMOUNT}" />
+    <string id="bank_loanpay_detail_body" text="Кредитный договор — Банк {CITY}&#10;&#10;• Исходная сумма: {ORIGINAL}&#10;• {STATUS}&#10;• Фиксированный процент: {INTEREST}&#10;• Ежедневный штраф: {LATEFEE}&#10;• Срок (дней): {DAYS}&#10;{SEP}&#10;{ACTION_HINT}" />
+    <string id="bank_loanpay_action_hint_pay" text="Выберите 'Оплатить этот кредит', чтобы сделать частичную оплату." />
+    <string id="bank_loanpay_action_hint_done" text="Этот кредит полностью выплачен." />
+    <string id="bank_loanpay_detail_back" text="Назад к списку кредитов" />
+    <string id="bank_loanpay_detail_pay" text="Оплатить этот кредит" />
+    <string id="bank_loanpay_popup_title" text="Платёж по кредиту" />
+    <string id="bank_loanpay_popup_desc" text="Введите сумму для оплаты (баланс: {BAL}, остаток: {REM}):" />
+    <string id="bank_loanpay_invalid_value" text="Недопустимая сумма." />
+    <string id="bank_loanpay_value_gt_zero" text="Сумма должна быть больше нуля." />
+    <string id="bank_loanpay_not_enough_gold" text="У вас недостаточно золота." />
+    <string id="bank_loanpay_value_too_low" text="Слишком маленькая сумма платежа." />
+    <string id="bank_loanpay_insufficient_after_round" text="Недостаточно средств после округления." />
+    <string id="bank_loanpay_payment_ok" text="Платёж на сумму {AMOUNT} успешно выполнен." />
+    <string id="bank_loanpay_now_paid" text="Кредит успешно полностью погашен." />
+    <string id="bank_loanpay_err_ctx" text="Ошибка: недопустимый контекст (поведение/игрок/город)." />
+    <string id="bank_loanpay_not_found" text="Договор не найден или недействителен." />
+    <string id="bank_loanpay_already_paid" text="Этот договор уже оплачен." />
+    <string id="bank_loanpay_err_list" text="Ошибка при создании списка: {ERROR}" />
+    <string id="bank_loanpay_err_detail" text="Ошибка при отображении деталей: {ERROR}" />
+    <string id="bank_loanpay_err_payment" text="Ошибка при обработке платежа: {ERROR}" />
+    <string id="bank_savings_menu_loading" text="Загрузка данных по сбережениям..." />
+    <string id="bank_savings_menu_body" text="Сбережения — Банк {CITY}&#10;&#10;• Годовая процентная ставка: {INTEREST_AA}&#10;• Ежедневная процентная ставка: {INTEREST_AD}&#10;• Местное процветание: {PROSPERITY}&#10;• Комиссия за снятие: {WITHDRAW_FEE}&#10;• Текущий баланс: {BALANCE}&#10;" />
+    <string id="bank_savings_menu_deposit" text="Внести деньги" />
+    <string id="bank_savings_menu_withdraw" text="Снять деньги" />
+    <string id="bank_savings_menu_back" text="Вернуться в банк" />
+    <string id="bank_savings_menu_error" text="[BanksOfCalradia] Ошибка при загрузке меню сбережений: {ERROR}" />
+    <string id="bank_savings_deposit_loading" text="Загрузка..." />
+    <string id="bank_savings_deposit_title" text="Вклад на счёт — Баланс: {BALANCE}" />
+    <string id="bank_savings_deposit_body" text="Выберите фиксированную сумму для вклада или используйте 'Произвольную сумму...'.&#10;&#10;Текущий баланс: {BALANCE}" />
+    <string id="bank_savings_deposit_fixed" text="Внести" />
+    <string id="bank_savings_deposit_all" text="Внести всё" />
+    <string id="bank_savings_deposit_custom" text="Произвольная сумма..." />
+    <string id="bank_savings_deposit_back" text="Назад к сбережениям" />
+    <string id="bank_savings_deposit_popup_title" text="Произвольный вклад" />
+    <string id="bank_savings_deposit_popup_desc" text="Введите сумму для вклада:" />
+    <string id="bank_savings_invalid_value" text="Недопустимая сумма." />
+    <string id="bank_savings_no_gold" text="У вас недостаточно золота." />
+    <string id="bank_savings_deposit_done" text="Вклад на сумму {AMOUNT} выполнен. Новый баланс: {BALANCE}." />
+    <string id="bank_savings_withdraw_loading" text="Загрузка..." />
+    <string id="bank_savings_withdraw_title" text="Снятие со счёта — Баланс: {BALANCE}" />
+    <string id="bank_savings_withdraw_body" text="Выберите фиксированную сумму для снятия или используйте 'Произвольную сумму...'.&#10;&#10;Текущая комиссия за снятие: {FEE}&#10;Текущий баланс: {BALANCE}" />
+    <string id="bank_savings_withdraw_fixed" text="Снять" />
+    <string id="bank_savings_withdraw_all" text="Снять всё" />
+    <string id="bank_savings_withdraw_custom" text="Произвольная сумма..." />
+    <string id="bank_savings_withdraw_back" text="Назад к сбережениям" />
+    <string id="bank_savings_no_balance" text="Недостаточный баланс на счёте." />
+    <string id="bank_savings_withdraw_popup_title" text="Произвольное снятие" />
+    <string id="bank_savings_withdraw_popup_desc" text="Введите сумму для снятия:" />
+    <string id="bank_savings_withdraw_done_all" text="Снятие {GROSS} выполнено (Комиссия: {FEE} → {FEEVAL}). Получено: {NET}. Баланс: {BAL}." />
+    <string id="bank_savings_withdraw_done_fixed" text="Снятие {GROSS} выполнено (Комиссия: {FEE} → {FEEVAL}). Получено: {NET}. Баланс: {BAL}." />
+    <string id="bank_savings_withdraw_done_custom" text="Снятие {GROSS} выполнено (Комиссия: {FEE} → {FEEVAL}). Получено: {NET}. Баланс: {BAL}." />
+    <string id="bank_prosperity_model_error" text="[BanksOfCalradia] Ошибка в модели процветания: {ERROR}" />
+    <string id="bank_prosperity_bank_label" text="Влияние банка" />
+    <string id="bank_storage_debug_header" text="[BanksOfCalradia] Сводка хранилища: Игроки: {PLAYERS}, Счета: {SAVINGS}, Кредиты: {LOANS}" />
+    <string id="bank_storage_debug_savings_line" text="  • {PLAYER} → {TOWN} = {AMOUNT}" />
+    <string id="bank_ledger_new_entry" text="[BanksOfCalradia][Ledger] Новая запись: {SOURCE} | {DESC} | {AMOUNT}" />
+    <string id="bank_ledger_apply_fail_nohero" text="[BanksOfCalradia][Ledger] Не удалось применить транзакцию: герой недоступен." />
+    <string id="bank_ledger_apply_ok" text="[BanksOfCalradia][Ledger] Транзакция применена: {AMOUNT} для {DESC}" />
+    <string id="bank_ledger_apply_error" text="[BanksOfCalradia][Ledger] Ошибка при применении транзакции: {ERROR}" />
+    <string id="bank_ledger_no_behavior" text="[BanksOfCalradia][Ledger] Поведение банка не найдено." />
+    <string id="bank_ledger_interest_desc" text="Ежедневные проценты ({TOWN})" />
+    <string id="bank_ledger_interest_label" text="Банковские проценты" />
+    <string id="bank_ledger_interest_injected" text="[BanksOfCalradia][Ledger] Банковские проценты добавлены: {AMOUNT}" />
+    <string id="bank_ledger_inject_error" text="[BanksOfCalradia][Ledger] Ошибка при добавлении процентов: {ERROR}" />
+    <string id="bank_ledger_removed" text="[BanksOfCalradia][Ledger] Запись удалена {ID}" />
+    <string id="bank_loan_installment_paid_icon" text="Выплата по взносу:" />
+    <string id="bank_loanpay_payment_ok_bonus" text="Вы заплатили {PAID} и получили бонус за досрочную оплату {BONUS}!" />
+    <string id="bank_loanpay_bonus_log" text="Эффективная стоимость: {COST} (сэкономлено {PERCENT}%). Новый долг: {NEWDEBT}" />
+    <string id="bank_loan_confirm_popup_title" text="Подтвердить кредитный договор" />
+    <string id="bank_loan_confirm_popup_text" text="Предпросмотр кредитного договора — Банк {CITY}&#10;&#10;• Запрошенная сумма: {AMOUNT}&#10;• Взносы: {INSTALLMENTS}x&#10;• Процентная ставка: {INTEREST}&#10;• Ежедневный штраф: {LATEFEE}&#10;• Общая сумма к выплате: {TOTAL}&#10;• Сумма взноса: {INSTALLMENT}&#10;&#10;Вы подтверждаете этот договор?" />
+    <string id="bank_loan_grace_period" text="Кредит находится в льготном периоде. Осталось {DAYS} дн. до первого платежа." />
+    <string id="bank_loan_grace_over" text="Льготный период завершён. Погашение кредита начнётся завтра." />
+  </strings>
+</base>

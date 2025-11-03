@@ -7,7 +7,7 @@
 
 	<Name value="Banks of Calradia"/>
 	<Id value="BanksOfCalradia"/>
-	<Version value="v1.0.5.2"/>
+	<Version value="v1.0.6.0"/>
 	<SingleplayerModule value="true"/>
 	<MultiplayerModule value="false"/>
 

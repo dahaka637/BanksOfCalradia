@@ -4,32 +4,21 @@
     <tag language="EN" />
   </tags>
   <strings>
-    <!-- Initialization -->
     <string id="bank_mod_boot_ok" text="[BanksOfCalradia] Mod loaded successfully." />
     <string id="bank_mod_init_ok" text="[BanksOfCalradia] Core systems initialized successfully." />
     <string id="bank_data_load_fail" text="[BanksOfCalradia] Failed to load saved data. Creating new instance." />
-
-    <!-- Main menu / visits -->
     <string id="bank_visit_option" text="Visit the Bank" />
     <string id="bank_open_savings" text="Access Savings Account" />
     <string id="bank_open_loans" text="Access Loan Services" />
     <string id="bank_return_city" text="Return to Town" />
     <string id="bank_default_city" text="Town" />
     <string id="bank_visit_label" text="Visit the Bank of {CITY}" />
-
     <string id="bank_menu_text" text="Bank of {CITY}&#10;&#10;Welcome to the town bank.&#10;&#10;Choose an option below to manage your resources:&#10;&#10;- Access Savings Account&#10;- Loan Services&#10;- Return to Town" />
-
-    <!-- Trade XP -->
     <string id="bank_trade_xp_gain" text="+{AMOUNT} Trade XP gained from banking profits." />
     <string id="bank_trade_xp_error" text="[BanksOfCalradia][Trade XP Error] {ERROR}" />
-
-    <!-- Finance in the panel -->
     <string id="bank_finance_interest" text="Bank interests" />
     <string id="bank_finance_interest_city" text="Bank interests ({CITY})" />
-
     <string id="bank_loan_payment_city" text="Loan payment ({CITY})" />
-
-    <!-- Loan processor -->
     <string id="bank_loan_processor_error" text="[BanksOfCalradia][Loans] Error during daily processing: {ERROR}" />
     <string id="bank_loan_installment_paid" text="Installment paid: -{AMOUNT}" />
     <string id="bank_loan_payment_info" text="Loan from the bank of {CITY}: remaining debt {AMOUNT} | Remaining installments: {INSTALLMENTS}" />
@@ -39,27 +28,20 @@
     <string id="bank_loan_fully_paid" text="Loan fully paid. Contract removed." />
     <string id="bank_loan_process_summary" text="[Loan] Processed: {TOTAL} | Full: {FULL} | Partial: {PARTIAL} | Penalties: {PENALTIES} | Paid today: {PAIDTODAY}" />
     <string id="bank_loan_city_unknown" text="Unknown town" />
-
-    <!-- Loan menu -->
     <string id="bank_loan_menu_loading" text="Loading bank loan information..." />
     <string id="bank_loan_menu_title" text="Bank of {CITY} — Credit" />
     <string id="bank_loan_menu_body" text="Bank of {CITY} — Credit&#10;&#10;• Estimated interest (12x): {INTEREST}&#10;• Daily late fee: {LATEFEE}&#10;• Available credit: {CREDIT}&#10;• Active debt: {DEBT}&#10;&#10;{SEP}&#10;&#10;Select an option below." />
     <string id="bank_loan_menu_option_request" text="Request a loan" />
     <string id="bank_loan_menu_option_pay" text="Pay existing loans" />
     <string id="bank_loan_menu_option_back" text="Return to Bank" />
-
-    <!-- Loan request -->
     <string id="bank_loan_req_loading" text="Loading loan simulation..." />
     <string id="bank_loan_req_title" text="Loan Request — {CITY}" />
     <string id="bank_loan_req_body" text="Loan Request — Bank of {CITY}&#10;&#10;Contract parameters:&#10;• Requested amount: {REQ}&#10;• Installments: {INST}&#10;&#10;{SEP}&#10;&#10;Current simulation:&#10;• Available credit: {CREDIT}&#10;• Total interest rate: {INTEREST}&#10;• Total with interest: {TOTAL}&#10;• Installment value: {INSTALLMENT}&#10;• Daily late fee: {LATEFEE}{WARN}" />
     <string id="bank_loan_req_warn_credit" text="Attention: the requested amount ({REQ}) exceeds your available credit ({CREDIT})." />
-
     <string id="bank_loan_req_edit_amount" text="Change requested amount" />
     <string id="bank_loan_req_edit_installments" text="Change number of installments (1–360)" />
     <string id="bank_loan_req_confirm" text="Confirm loan" />
     <string id="bank_loan_req_back" text="Back" />
-
-    <!-- Loan popups -->
     <string id="bank_loan_popup_amount_title" text="Requested amount" />
     <string id="bank_loan_popup_amount_desc" text="Enter the desired amount:" />
     <string id="bank_loan_popup_amount_invalid" text="Invalid amount." />
@@ -68,8 +50,6 @@
     <string id="bank_loan_popup_inst_invalid" text="Invalid number." />
     <string id="bank_popup_confirm" text="Confirm" />
     <string id="bank_popup_cancel" text="Cancel" />
-
-    <!-- Loan confirmation and errors -->
     <string id="bank_loan_confirm_invalid_player_or_city" text="Error: invalid player or town." />
     <string id="bank_loan_confirm_need_amount" text="Set the loan amount first." />
     <string id="bank_loan_confirm_need_installments" text="Set the number of installments before confirming." />
@@ -78,16 +58,12 @@
     <string id="bank_loan_confirm_error" text="Error while registering the loan: {ERROR}" />
     <string id="bank_loan_menu_error" text="Error while loading loan menu: {ERROR}" />
     <string id="bank_loan_req_error" text="Error while updating loan simulation: {ERROR}" />
-
-    <!-- Active loans list -->
     <string id="bank_loanpay_list_loading" text="Loading active loans..." />
     <string id="bank_loanpay_list_title" text="Bank of {CITY} — Active Loans" />
     <string id="bank_loanpay_list_body" text="Bank of {CITY}&#10;&#10;Active debt with this bank: {DEBT}&#10;&#10;Use 'Select contract' to choose which one to manage.&#10;&#10;{SEP}" />
     <string id="bank_loanpay_list_body_empty" text="Bank of {CITY}&#10;&#10;You do not have pending loans at this bank.&#10;&#10;{SEP}" />
     <string id="bank_loanpay_list_pick" text="Select contract" />
     <string id="bank_loanpay_list_back" text="Return to Bank" />
-
-    <!-- Contract selector -->
     <string id="bank_loanpay_picker_title" text="Select Contract" />
     <string id="bank_loanpay_picker_desc" text="Choose a contract to view details and make payments." />
     <string id="bank_loanpay_picker_item" text="Contract {INDEX} — Remaining: {AMOUNT}" />
@@ -95,8 +71,6 @@
     <string id="bank_loanpay_none_for_city" text="No active contracts to display." />
     <string id="bank_loanpay_err_ctx_select" text="Error: invalid context when opening selection." />
     <string id="bank_loanpay_err_open_picker" text="Error while opening contract selection: {ERROR}" />
-
-    <!-- Contract details -->
     <string id="bank_loanpay_detail_loading" text="Loading contract details..." />
     <string id="bank_loanpay_detail_title" text="Loan Details" />
     <string id="bank_loading_generic" text="Loading..." />
@@ -108,8 +82,6 @@
     <string id="bank_loanpay_action_hint_done" text="This loan is fully paid." />
     <string id="bank_loanpay_detail_back" text="Back to loan list" />
     <string id="bank_loanpay_detail_pay" text="Pay this loan" />
-
-    <!-- Loan payment -->
     <string id="bank_loanpay_popup_title" text="Loan Payment" />
     <string id="bank_loanpay_popup_desc" text="Enter the amount to pay (balance: {BAL}, remaining: {REM}):" />
     <string id="bank_loanpay_invalid_value" text="Invalid amount." />
@@ -125,16 +97,12 @@
     <string id="bank_loanpay_err_list" text="Error while building list: {ERROR}" />
     <string id="bank_loanpay_err_detail" text="Error while showing details: {ERROR}" />
     <string id="bank_loanpay_err_payment" text="Error while processing payment: {ERROR}" />
-
-    <!-- Savings -->
     <string id="bank_savings_menu_loading" text="Loading savings data..." />
     <string id="bank_savings_menu_body" text="Savings — Bank of {CITY}&#10;&#10;• Annual interest rate: {INTEREST_AA}&#10;• Daily interest rate: {INTEREST_AD}&#10;• Local prosperity: {PROSPERITY}&#10;• Withdraw fee: {WITHDRAW_FEE}&#10;• Current balance: {BALANCE}&#10;" />
     <string id="bank_savings_menu_deposit" text="Deposit Money" />
     <string id="bank_savings_menu_withdraw" text="Withdraw Money" />
     <string id="bank_savings_menu_back" text="Return to Bank" />
     <string id="bank_savings_menu_error" text="[BanksOfCalradia] Error while loading savings menu: {ERROR}" />
-
-    <!-- Deposit -->
     <string id="bank_savings_deposit_loading" text="Loading..." />
     <string id="bank_savings_deposit_title" text="Deposit into Savings — Bank balance: {BALANCE}" />
     <string id="bank_savings_deposit_body" text="Select a fixed amount to deposit or use 'Custom amount...'.&#10;&#10;Current bank balance: {BALANCE}" />
@@ -147,8 +115,6 @@
     <string id="bank_savings_invalid_value" text="Invalid amount." />
     <string id="bank_savings_no_gold" text="You do not have enough gold." />
     <string id="bank_savings_deposit_done" text="Deposit of {AMOUNT} completed. New balance: {BALANCE}." />
-
-    <!-- Withdraw -->
     <string id="bank_savings_withdraw_loading" text="Loading..." />
     <string id="bank_savings_withdraw_title" text="Withdraw from Savings — Bank balance: {BALANCE}" />
     <string id="bank_savings_withdraw_body" text="Select a fixed amount to withdraw or use 'Custom amount...'.&#10;&#10;Current withdraw fee for this bank: {FEE}&#10;Current bank balance: {BALANCE}" />
@@ -162,16 +128,10 @@
     <string id="bank_savings_withdraw_done_all" text="Withdraw of {GROSS} completed (Fee: {FEE} → {FEEVAL}). Received: {NET}. Balance: {BAL}." />
     <string id="bank_savings_withdraw_done_fixed" text="Withdraw of {GROSS} completed (Fee: {FEE} → {FEEVAL}). Received: {NET}. Balance: {BAL}." />
     <string id="bank_savings_withdraw_done_custom" text="Withdraw of {GROSS} completed (Fee: {FEE} → {FEEVAL}). Received: {NET}. Balance: {BAL}." />
-
-    <!-- Prosperity model -->
     <string id="bank_prosperity_model_error" text="[BanksOfCalradia] Error in prosperity model: {ERROR}" />
-    <string id="bank_prosperity_bank_label" text="Bank savings influence" />
-
-    <!-- Debug / storage -->
+    <string id="bank_prosperity_bank_label" text="Bank influence" />
     <string id="bank_storage_debug_header" text="[BanksOfCalradia] Storage summary: Players: {PLAYERS}, Accounts: {SAVINGS}, Loans: {LOANS}" />
     <string id="bank_storage_debug_savings_line" text="  • {PLAYER} → {TOWN} = {AMOUNT}" />
-
-    <!-- Ledger -->
     <string id="bank_ledger_new_entry" text="[BanksOfCalradia][Ledger] New entry: {SOURCE} | {DESC} | {AMOUNT}" />
     <string id="bank_ledger_apply_fail_nohero" text="[BanksOfCalradia][Ledger] Could not apply transaction: hero unavailable." />
     <string id="bank_ledger_apply_ok" text="[BanksOfCalradia][Ledger] Transaction applied: {AMOUNT} for {DESC}" />
@@ -182,15 +142,12 @@
     <string id="bank_ledger_interest_injected" text="[BanksOfCalradia][Ledger] Bank interests injected: {AMOUNT}" />
     <string id="bank_ledger_inject_error" text="[BanksOfCalradia][Ledger] Error while injecting interests: {ERROR}" />
     <string id="bank_ledger_removed" text="[BanksOfCalradia][Ledger] Entry removed {ID}" />
-
-	<string id="bank_loan_installment_paid_icon" text="Installment paid:" />
-
-	<string id="bank_loanpay_payment_ok_bonus" text="You paid {PAID} and received an early payment benefit of {BONUS}!" />
-	<string id="bank_loanpay_bonus_log" text="Effective cost: {COST} ({PERCENT}% saved). New debt: {NEWDEBT}" />
-
-	<string id="bank_loan_confirm_popup_title" text="Confirm Loan Contract" />
-
-	<string id="bank_loan_confirm_popup_text" text="Loan Contract Preview — Bank of {CITY}&#10;&#10;• Amount requested: {AMOUNT}&#10;• Installments: {INSTALLMENTS}x&#10;• Interest rate: {INTEREST}&#10;• Daily late fee: {LATEFEE}&#10;• Total to repay: {TOTAL}&#10;• Installment value: {INSTALLMENT}&#10;&#10;Do you confirm this contract?" />
-
+    <string id="bank_loan_installment_paid_icon" text="Installment paid:" />
+    <string id="bank_loanpay_payment_ok_bonus" text="You paid {PAID} and received an early payment benefit of {BONUS}!" />
+    <string id="bank_loanpay_bonus_log" text="Effective cost: {COST} ({PERCENT}% saved). New debt: {NEWDEBT}" />
+    <string id="bank_loan_confirm_popup_title" text="Confirm Loan Contract" />
+    <string id="bank_loan_confirm_popup_text" text="Loan Contract Preview — Bank of {CITY}&#10;&#10;• Amount requested: {AMOUNT}&#10;• Installments: {INSTALLMENTS}x&#10;• Interest rate: {INTEREST}&#10;• Daily late fee: {LATEFEE}&#10;• Total to repay: {TOTAL}&#10;• Installment value: {INSTALLMENT}&#10;&#10;Do you confirm this contract?" />
+    <string id="bank_loan_grace_period" text="Loan is under grace period. {DAYS} day(s) remaining before first charge." />
+    <string id="bank_loan_grace_over" text="Grace period ended. Loan repayment will begin tomorrow." />
   </strings>
 </base>
