@@ -182,6 +182,15 @@ namespace BanksOfCalradia.Source.UI
                 isLeave: false
             );
 
+
+            starter.AddGameMenuOption(
+                "bank_savings", "savings_toggle_reinvest",
+                L.S("savings_toggle_reinvest", "Toggle Auto-Reinvestment"),
+                args => { args.optionLeaveType = GameMenuOption.LeaveType.Continue; return true; },
+                _ => ToggleAutoReinvest(behavior),
+                isLeave: false
+            );
+
             starter.AddGameMenuOption(
                 "bank_savings", "savings_back",
                 L.S("savings_menu_back", "Return to Bank"),
@@ -260,13 +269,20 @@ namespace BanksOfCalradia.Source.UI
                 if (acct.Amount < 0f) acct.Amount = 0f;
                 float balance = acct.Amount;
 
+                // Estado atual do reinvestimento automático
+                string reinvestStatus = acct.AutoReinvest
+                    ? L.S("savings_reinvest_on", "Enabled")
+                    : L.S("savings_reinvest_off", "Disabled");
+
                 var body = L.T("savings_menu_body",
                     "Savings — Bank of {CITY}\n\n" +
                     "• Annual interest rate: {INTEREST_AA}\n" +
                     "• Daily interest rate: {INTEREST_AD}\n" +
                     "• Local prosperity: {PROSPERITY}\n" +
                     "• Withdraw fee: {WITHDRAW_FEE}\n" +
-                    "• Current balance: {BALANCE}\n");
+                    "• Current balance: {BALANCE}\n" +
+                    "• Auto-Reinvestment: {REINVEST}\n"); // nova linha
+
 
                 body.SetTextVariable("CITY", townName);
                 body.SetTextVariable("INTEREST_AA", BankUtils.FmtPct(taxaAnual / 100f));
@@ -274,6 +290,8 @@ namespace BanksOfCalradia.Source.UI
                 body.SetTextVariable("PROSPERITY", prosperity.ToString("0"));
                 body.SetTextVariable("WITHDRAW_FEE", BankUtils.FmtPct(withdrawRate));
                 body.SetTextVariable("BALANCE", BankUtils.FmtDenars(balance));
+                body.SetTextVariable("REINVEST", reinvestStatus);
+
 
                 args.MenuTitle = body;
                 SafeSetMenuText(args, body);
@@ -482,6 +500,28 @@ namespace BanksOfCalradia.Source.UI
                 () => { }
 
             ));
+        }
+
+        private static void ToggleAutoReinvest(BankCampaignBehavior behavior)
+        {
+            if (!TryGetContext(behavior, out var hero, out var settlement, out var playerId, out var townId))
+                return;
+
+            var acct = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
+            acct.AutoReinvest = !acct.AutoReinvest; // inverte o estado
+            SafeSync(behavior);
+
+            string msg = acct.AutoReinvest
+                ? L.S("savings_reinvest_enabled", "Automatic reinvestment ENABLED — interest will now be added directly to your savings.")
+                : L.S("savings_reinvest_disabled", "Automatic reinvestment DISABLED — interest will now go to your personal gold.");
+
+            InformationManager.DisplayMessage(new InformationMessage(
+                msg,
+                Color.FromUint(acct.AutoReinvest ? BankUtils.UiGold : 0xFFFF6666)
+            ));
+
+            // Recarrega o menu para atualizar o texto
+            SafeSwitchToMenu("bank_savings");
         }
 
         // ============================================

@@ -1,7 +1,7 @@
 ﻿// ============================================
 // BanksOfCalradia - SubModule.cs
 // Author: Dahaka
-// Version: 2.1.0 (Production Release)
+// Version: 2.2.0 (Production Release + Finance Fallback)
 // Description:
 //   Initialization of all core systems for
 //   the Banks of Calradia mod.
@@ -21,6 +21,9 @@ using BanksOfCalradia.Source.Systems;
 using BanksOfCalradia.Source.Systems.Processing;
 using BanksOfCalradia.Source.UI;
 
+// Test proxy
+using BanksOfCalradia.Source.Systems.Testing;
+
 namespace BanksOfCalradia.Source
 {
     public class SubModule : MBSubModuleBase
@@ -37,29 +40,36 @@ namespace BanksOfCalradia.Source
             try
             {
                 // ============================================================
-                // Core persistence and behaviors
+                // 🔧 (1) Proxy do modelo de comida
+                // ============================================================
+                campaignStarter.AddModel(new BankFoodModelProxy());
+
+                // ============================================================
+                // (2) Core persistence and behaviors
                 // ============================================================
                 var bankBehavior = new BankCampaignBehavior();
                 campaignStarter.AddBehavior(bankBehavior);
 
                 // ============================================================
-                // Core models and processors
+                // (3) Core models and processors
                 // ============================================================
                 campaignStarter.AddModel(new FinanceProcessor());
                 campaignStarter.AddBehavior(new BankLoanProcessor());
                 campaignStarter.AddModel(new BankProsperityModel());
 
+                // 🔸 Novo: fallback autodefensivo do sistema financeiro
+                campaignStarter.AddBehavior(new BankFinanceFallbackBehavior());
+
                 // ============================================================
-                // Bank menus
+                // (4) Bank menus
                 // ============================================================
                 BankMenu_Savings.RegisterMenu(campaignStarter, bankBehavior);
                 BankMenu_Loan.RegisterMenu(campaignStarter, bankBehavior);
                 BankMenu_LoanPay.RegisterMenu(campaignStarter, bankBehavior);
 
                 // ============================================================
-                // Initialization message (localization-safe)
+                // (5) Log de inicialização (localização segura)
                 // ============================================================
-
             }
             catch (Exception e)
             {

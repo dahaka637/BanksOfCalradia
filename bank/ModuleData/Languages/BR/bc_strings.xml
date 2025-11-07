@@ -98,7 +98,9 @@
 		<string id="bank_loanpay_err_detail" text="Erro ao exibir detalhes: {ERROR}" />
 		<string id="bank_loanpay_err_payment" text="Erro ao processar pagamento: {ERROR}" />
 		<string id="bank_savings_menu_loading" text="Carregando dados da poupança..." />
-		<string id="bank_savings_menu_body" text="Poupança — Banco de {CITY}&#10;&#10;• Taxa de juros anual: {INTEREST_AA}&#10;• Taxa de juros diária: {INTEREST_AD}&#10;• Prosperidade local: {PROSPERITY}&#10;• Taxa de saque: {WITHDRAW_FEE}&#10;• Saldo atual: {BALANCE}&#10;" />
+		<string id="bank_savings_menu_body"
+				text="Poupança — Banco de {CITY}&#10;&#10;• Taxa de juros anual: {INTEREST_AA}&#10;• Taxa de juros diária: {INTEREST_AD}&#10;• Prosperidade local: {PROSPERITY}&#10;• Taxa de saque: {WITHDRAW_FEE}&#10;• Saldo atual: {BALANCE}&#10;• Reinvestimento automático: {REINVEST}"/>
+
 		<string id="bank_savings_menu_deposit" text="Depositar Dinheiro" />
 		<string id="bank_savings_menu_withdraw" text="Sacar Dinheiro" />
 		<string id="bank_savings_menu_back" text="Voltar ao Banco" />
@@ -149,5 +151,22 @@
 		<string id="bank_loan_confirm_popup_text" text="Prévia do Contrato de Empréstimo — Banco de {CITY}&#10;&#10;• Valor solicitado: {AMOUNT}&#10;• Parcelas: {INSTALLMENTS}x&#10;• Taxa de juros: {INTEREST}&#10;• Multa diária: {LATEFEE}&#10;• Total a pagar: {TOTAL}&#10;• Valor da parcela: {INSTALLMENT}&#10;&#10;Deseja confirmar este contrato?" />
 		<string id="bank_loan_grace_period" text="O empréstimo está em período de carência. Restam {DAYS} dia(s) antes da primeira cobrança." />
 		<string id="bank_loan_grace_over" text="O período de carência terminou. O pagamento do empréstimo começará amanhã." />
+		<string id="bank_food_aid_bank_label" text="Ajuda alimentar bancária" />
+		<!-- Auto-Reinvest notification -->
+		<!-- Auto-Reinvest messages -->
+		<string id="bank_finance_auto_reinvest_msg" text="Juros de" />
+		<string id="bank_finance_auto_reinvest_to"  text="adicionados à poupança em" />
+
+		<!-- Savings menu (auto reinvestment toggle) -->
+		<string id="bank_savings_toggle_reinvest" text="Alternar Reinvestimento Automático" />
+		<string id="bank_savings_reinvest_on" text="Ativado" />
+		<string id="bank_savings_reinvest_off" text="Desativado" />
+		<string id="bank_savings_reinvest_enabled" text="Reinvestimento automático ATIVADO — os juros serão adicionados diretamente à sua poupança." />
+		<string id="bank_savings_reinvest_disabled" text="Reinvestimento automático DESATIVADO — os juros agora irão para seu ouro pessoal." />
+
+		<string id="bank_finance_auto_reinvest_summary_1" text="Reinvestimento automático concluído:" />
+		<string id="bank_finance_auto_reinvest_summary_2" text="Total de" />
+		<string id="bank_finance_auto_reinvest_summary_3" text="adicionado em {COUNT} contas bancárias." />
+
 	</strings>
 </base>
