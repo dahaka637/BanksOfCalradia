@@ -1,13 +1,14 @@
 ﻿// ============================================
 // BanksOfCalradia - BankFinanceProcessor.cs
 // Author: Dahaka
-// Version: 6.7.0 (Double Precision Stable)
+// Version: 6.8.0 (Production • Integer Money)
 // Description:
 //   Core finance model for Banks of Calradia.
-//   • Full double-precision support for large balances
+//   • Double precision internally
+//   • Integer-denar outputs (0.5 => 1) in all cases
 //   • Safe compound interest (auto-reinvest)
 //   • Compatible with ExplainedNumber (float conversion)
-//   • Preserves UI feedback, ALT visualization, and logs
+//   • Clean logs/messages and production-safe try/catch
 // ============================================
 
 using BanksOfCalradia.Source.Core;
@@ -42,6 +43,14 @@ namespace BanksOfCalradia.Source.Systems.Processing
         }
 
         // =========================================================
+        // Utilitário: arredondamento universal para denares inteiros
+        // =========================================================
+        private static double RoundToDenars(double value)
+        {
+            return Math.Round(value, 0, MidpointRounding.AwayFromZero);
+        }
+
+        // =========================================================
         // Expected Gold Change — detalhado
         // =========================================================
         public override ExplainedNumber CalculateClanIncome(
@@ -56,11 +65,9 @@ namespace BanksOfCalradia.Source.Systems.Processing
             {
                 AddBankInterestToExplainedNumber(clan, ref result, includeDescriptions, includeDetails, applyWithdrawals);
             }
-            catch (Exception ex)
+            catch
             {
-#if DEBUG
-                DebugMsg($"[BanksOfCalradia][FinanceModel] Error calculating bank income: {ex.Message}");
-#endif
+                // silencioso em produção
             }
 
             return result;
@@ -82,11 +89,9 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 AddBankInterestToExplainedNumber(clan, ref result, includeDescriptions, includeDetails, applyWithdrawals);
                 AddLoanPreviewVisual(clan, ref result, includeDescriptions, includeDetails);
             }
-            catch (Exception ex)
+            catch
             {
-#if DEBUG
-                DebugMsg($"[BanksOfCalradia][FinanceModel] Error calculating expected gold change: {ex.Message}");
-#endif
+                // silencioso em produção
             }
 
             return result;
@@ -94,6 +99,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
 
         // =========================================================
         // Cálculo de juros da poupança (Curva Calibrada Premium)
+        // Saídas sempre em denares inteiros
         // =========================================================
         internal void AddBankInterestToExplainedNumber(
             Clan clan,
@@ -137,18 +143,17 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 double prosperity = settlement.Town.Prosperity;
                 string townName = settlement.Name.ToString();
 
+                // Juros como denares inteiros (com corte mínimo)
                 double ganhoDiario = ComputeInterestForAccount(acc.Amount, prosperity);
                 if (ganhoDiario <= 0.0)
                     continue;
 
-                // --------------------------------------------------
-                // Auto-Reinvest (juros compostos)
-                // --------------------------------------------------
+                // Auto-Reinvest (composto)
                 if (acc.AutoReinvest)
                 {
-                    if (applyWithdrawals)
+                    if (applyWithdrawals && ganhoDiario >= 1.0d)
                     {
-                        acc.Amount = Math.Max(0d, acc.Amount + ganhoDiario);
+                        acc.Amount = Math.Max(0d, acc.Amount + ganhoDiario); // ganhoDiario já é inteiro
                         anyAutoReinvestChange = true;
                         totalReinvested += ganhoDiario;
                         reinvestCount++;
@@ -158,9 +163,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
                     continue;
                 }
 
-                // --------------------------------------------------
-                // Comportamento normal (sem reinvestimento automático)
-                // --------------------------------------------------
+                // Sem reinvestimento: ganhos vão para Expected Gold Change
                 totalGoldGain += ganhoDiario;
 
                 if (includeDetails && includeDescriptions && ganhoDiario > 0)
@@ -171,9 +174,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 }
             }
 
-            // =========================================================
-            // Exibição de mensagens de reinvestimento
-            // =========================================================
+            // Mensagens de reinvestimento
             if (applyWithdrawals && reinvestCount > 0)
             {
                 if (reinvestCount <= 3)
@@ -192,12 +193,18 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 try { behavior.SyncBankData(); } catch { }
             }
 
-            if (totalGoldGain > 0.01d && !includeDetails)
-                goldChange.Add((float)Math.Round(totalGoldGain), consolidatedLabel);
+            // Linha consolidada (modo resumido)
+            if (totalGoldGain >= 1.0d && !includeDetails)
+            {
+                double totalInt = RoundToDenars(totalGoldGain);
+                if (totalInt >= 1.0d)
+                    goldChange.Add((float)totalInt, consolidatedLabel);
+            }
         }
 
         // =========================================================
         // Helper: cálculo individual de juros (double precision)
+        // Retorna denares inteiros (0.5 => 1), com corte mínimo de 1
         // =========================================================
         private static double ComputeInterestForAccount(double amount, double prosperity)
         {
@@ -223,14 +230,24 @@ namespace BanksOfCalradia.Source.Systems.Processing
             double taxaAnual = Math.Round(taxaBase * (0.95d + ajusteLog * 0.15d), 2);
             double taxaDiaria = taxaAnual / CICLO_DIAS;
 
+            // Rendimento diário em double
             double rendimentoDia = amount * (taxaDiaria / 100d);
 
-            // Nenhum arredondamento precoce — mantém precisão de centavos
-            return Math.Max(rendimentoDia, 0d);
+            // Primeiro fixa precisão monetária em 2 casas para estabilidade
+            double rendimentoCentavos = Math.Round(rendimentoDia, 2);
+
+            // Converte para denares inteiros (0.5 => 1)
+            double rendimentoInteiro = RoundToDenars(rendimentoCentavos);
+
+            // Corte mínimo: ignora < 1 denar
+            if (rendimentoInteiro < 1.0d)
+                return 0d;
+
+            return rendimentoInteiro;
         }
 
         // =========================================================
-        // Fallback defensivo — cálculo total independente
+        // Fallback defensivo — cálculo total independente (inteiro)
         // =========================================================
         internal static double CalculateStandaloneDailyInterest()
         {
@@ -258,11 +275,11 @@ namespace BanksOfCalradia.Source.Systems.Processing
                     if (settlement?.Town == null)
                         continue;
 
-                    double ganho = ComputeInterestForAccount(acc.Amount, settlement.Town.Prosperity);
+                    double ganho = ComputeInterestForAccount(acc.Amount, settlement.Town.Prosperity); // já inteiro
                     totalGoldGain += ganho;
                 }
 
-                return totalGoldGain > 0.01d ? totalGoldGain : 0d;
+                return RoundToDenars(totalGoldGain);
             }
             catch
             {
@@ -281,6 +298,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
         {
             try
             {
+                // Exibe apenas para o jogador, no modo detalhado (ALT)
                 if (clan == null || clan != Clan.PlayerClan || !includeDetails)
                     return;
 
@@ -303,35 +321,44 @@ namespace BanksOfCalradia.Source.Systems.Processing
                     if (loan.Remaining <= 0.01d || loan.DurationDays <= 0)
                         continue;
 
-
                     if (loan.CreatedAt <= 0f)
                         loan.CreatedAt = (float)(currentDay - GRACE_DAYS);
-
 
                     if (currentDay - loan.CreatedAt < GRACE_DAYS)
                         continue;
 
+                    // -------------------------------------------------
+                    // Cálculo da parcela diária esperada (modo preview)
+                    // -------------------------------------------------
                     double due = loan.Remaining / Math.Max(loan.DurationDays, 1);
                     if (due <= 0)
                         continue;
 
-                    string townName = Campaign.Current?.Settlements?.Find(s => s.StringId == loan.TownId)?.Name?.ToString()
-                        ?? L.S("default_city", "City");
+                    // 🔹 Arredondamento para denares inteiros (sem centavos)
+                    double dueRounded = Math.Round(due, 0, MidpointRounding.AwayFromZero);
+                    if (dueRounded < 1.0d)
+                        continue;
+
+                    string townName = Campaign.Current?.Settlements?
+                        .Find(s => s.StringId == loan.TownId)?
+                        .Name?.ToString() ?? L.S("default_city", "City");
 
                     var label = L.T("loan_payment_city", "Loan payment ({CITY})");
                     label.SetTextVariable("CITY", townName);
 
-                    goldChange.Add(-(float)due, label);
+                    // Adiciona ao ExplainedNumber como valor negativo (saída de ouro)
+                    goldChange.Add(-(float)dueRounded, label);
                 }
             }
             catch
             {
-                // silencioso
+                // silencioso em produção — evita crash em caso de dados inválidos
             }
         }
 
+
         // =========================================================
-        // Mensagem individual de reinvestimento automático
+        // Mensagens de reinvestimento automático
         // =========================================================
         private static void ShowReinvestInfo(string townName, double amount)
         {
@@ -339,18 +366,12 @@ namespace BanksOfCalradia.Source.Systems.Processing
             {
                 string prefix = L.S("finance_auto_reinvest_msg", "Interest of");
                 string mid = L.S("finance_auto_reinvest_to", "added to savings in");
-
-                // FmtDenars já contém o ícone da moeda
                 string msg = $"{prefix} +{BankUtils.FmtDenars(amount)} {mid} {townName}";
                 InformationManager.DisplayMessage(new InformationMessage(msg, Color.FromUint(0xFFEEEEEE)));
             }
             catch { }
         }
 
-
-        // =========================================================
-        // Mensagem consolidada de reinvestimento automático
-        // =========================================================
         private static void ShowReinvestSummary(double totalAmount, int count)
         {
             try
@@ -362,23 +383,10 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 suffixObj.SetTextVariable("COUNT", count);
                 string suffix = suffixObj.ToString();
 
-                // FmtDenars já contém o ícone da moeda
                 string msg = $"{prefix} {mid} +{BankUtils.FmtDenars(totalAmount)} {suffix}";
-
-                InformationManager.DisplayMessage(
-                    new InformationMessage(msg, Color.FromUint(0xFFEEEEEE))
-                );
+                InformationManager.DisplayMessage(new InformationMessage(msg, Color.FromUint(0xFFEEEEEE)));
             }
             catch { }
-        }
-
-
-        // =========================================================
-        // Logger utilitário (modo DEBUG)
-        // =========================================================
-        private static void DebugMsg(string msg)
-        {
-            InformationManager.DisplayMessage(new InformationMessage(msg, Color.FromUint(0xFFAACCEE)));
         }
     }
 }

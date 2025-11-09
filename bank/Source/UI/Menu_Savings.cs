@@ -507,21 +507,22 @@ namespace BanksOfCalradia.Source.UI
                 return;
 
             var acct = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
-            double gross = Math.Floor(acct.Amount);
-            if (gross <= 0)
+            double gross = acct.Amount;
+            if (gross <= 0.0001d)
             {
                 ShowWarn(L.S("savings_no_balance", "Insufficient savings balance."));
                 return;
             }
 
             double feeRate = GetDynamicWithdrawFee(s);
-            double feeVal = Math.Ceiling(gross * feeRate);
+            double feeVal = Math.Round(gross * feeRate, 2);
             double net = Math.Max(0, gross - feeVal);
 
-            acct.Amount -= gross;
-            if (acct.Amount < 0) acct.Amount = 0;
+            // zera a conta completamente após o saque
+            acct.Amount = 0d;
             hero.ChangeHeroGold((int)Math.Floor(net));
             SafeSync(behavior);
+
 
             var msg = L.T("savings_withdraw_done_all",
                 "Withdraw of {GROSS} completed (Fee: {FEE} → {FEEVAL}). Received: {NET}. Balance: {BAL}.");
@@ -555,8 +556,9 @@ namespace BanksOfCalradia.Source.UI
             double feeVal = Math.Ceiling(grossVal * feeRate);
             double net = Math.Max(0, grossVal - feeVal);
 
-            acct.Amount -= grossVal;
-            if (acct.Amount < 0) acct.Amount = 0;
+            acct.Amount = Math.Max(0d, acct.Amount - grossVal);
+            if (acct.Amount < 0.0001d) acct.Amount = 0d;
+
             hero.ChangeHeroGold((int)Math.Floor(net));
             SafeSync(behavior);
 

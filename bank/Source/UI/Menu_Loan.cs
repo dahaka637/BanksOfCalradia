@@ -365,12 +365,13 @@ namespace BanksOfCalradia.Source.UI
                     "• Installment value: {INSTALLMENT}\n\n" +
                     "Do you confirm this contract?");
                 textObj.SetTextVariable("CITY", settlement.Name?.ToString() ?? "City");
-                textObj.SetTextVariable("AMOUNT", BankUtils.FmtDenars(_sim.RequestedAmount));
+                textObj.SetTextVariable("AMOUNT", BankUtils.FmtDenarsFull(_sim.RequestedAmount));
                 textObj.SetTextVariable("INSTALLMENTS", parcelas);
                 textObj.SetTextVariable("INTEREST", BankUtils.FmtPct(jurosPct / 100f));
                 textObj.SetTextVariable("LATEFEE", BankUtils.FmtPct(multa / 100f));
-                textObj.SetTextVariable("TOTAL", BankUtils.FmtDenars(valorTotal));
-                textObj.SetTextVariable("INSTALLMENT", BankUtils.FmtDenars(valorParcela));
+                textObj.SetTextVariable("TOTAL", BankUtils.FmtDenarsFull(valorTotal));
+                textObj.SetTextVariable("INSTALLMENT", BankUtils.FmtDenarsFull(valorParcela));
+
 
                 // 🔹 Exibir popup de confirmação antes de criar o contrato
                 InformationManager.ShowInquiry(
