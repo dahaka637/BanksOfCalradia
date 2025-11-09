@@ -1,18 +1,13 @@
 ﻿// ============================================
 // BanksOfCalradia - BankFinanceProcessor.cs
 // Author: Dahaka
-// Version: 6.6.3 (Production Stable)
+// Version: 6.7.0 (Double Precision Stable)
 // Description:
 //   Core finance model for Banks of Calradia.
-//   Injects savings interest projection into
-//   the clan Expected Gold Change panel, based
-//   on accounts stored in BankCampaignBehavior.
-//
-//   • Uses native localization helper (L)
-//   • Displays detailed per-town lines (ALT mode)
-//   • Self-defensive mode for compatibility
-//   • Supports per-account Auto-Reinvest (compound interest)
-//   • Distinct message logic: individual OR summary
+//   • Full double-precision support for large balances
+//   • Safe compound interest (auto-reinvest)
+//   • Compatible with ExplainedNumber (float conversion)
+//   • Preserves UI feedback, ALT visualization, and logs
 // ============================================
 
 using BanksOfCalradia.Source.Core;
@@ -29,9 +24,6 @@ namespace BanksOfCalradia.Source.Systems.Processing
 {
     public class FinanceProcessor : DefaultClanFinanceModel
     {
-        // =========================================================
-        // Constantes principais do modelo de poupança
-        // =========================================================
         private const float PROSPERIDADE_BASE = 5000f;
         private const float PROSPERIDADE_ALTA = 6000f;
         private const float PROSPERIDADE_MAX = 10000f;
@@ -39,9 +31,6 @@ namespace BanksOfCalradia.Source.Systems.Processing
 
         public override int PartyGoldLowerThreshold => base.PartyGoldLowerThreshold;
 
-        // =========================================================
-        // Verifica se este é o modelo ativo
-        // =========================================================
         internal static bool IsActiveModel()
         {
             var models = Campaign.Current?.Models;
@@ -127,29 +116,29 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 accounts == null || accounts.Count == 0)
                 return;
 
-            float totalGoldGain = 0f;
+            double totalGoldGain = 0d;
             bool anyAutoReinvestChange = false;
 
-            float totalReinvested = 0f;
+            double totalReinvested = 0d;
             int reinvestCount = 0;
-            var reinvestEntries = new List<(string Town, int Amount)>();
+            var reinvestEntries = new List<(string Town, double Amount)>();
 
             var consolidatedLabel = L.T("finance_interest", "Bank interest");
 
             foreach (var acc in accounts)
             {
-                if (acc == null || acc.Amount <= 0.01f)
+                if (acc == null || acc.Amount <= 0.01d)
                     continue;
 
                 var settlement = Campaign.Current?.Settlements?.Find(s => s.StringId == acc.TownId);
                 if (settlement?.Town == null)
                     continue;
 
-                float prosperity = settlement.Town.Prosperity;
+                double prosperity = settlement.Town.Prosperity;
                 string townName = settlement.Name.ToString();
 
-                int ganhoInteiro = ComputeInterestForAccount(acc.Amount, prosperity);
-                if (ganhoInteiro < 1)
+                double ganhoDiario = ComputeInterestForAccount(acc.Amount, prosperity);
+                if (ganhoDiario <= 0.0)
                     continue;
 
                 // --------------------------------------------------
@@ -159,11 +148,11 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 {
                     if (applyWithdrawals)
                     {
-                        acc.Amount = Math.Max(0f, acc.Amount + ganhoInteiro);
+                        acc.Amount = Math.Max(0d, acc.Amount + ganhoDiario);
                         anyAutoReinvestChange = true;
-                        totalReinvested += ganhoInteiro;
+                        totalReinvested += ganhoDiario;
                         reinvestCount++;
-                        reinvestEntries.Add((townName, ganhoInteiro));
+                        reinvestEntries.Add((townName, ganhoDiario));
                     }
 
                     continue;
@@ -172,86 +161,78 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 // --------------------------------------------------
                 // Comportamento normal (sem reinvestimento automático)
                 // --------------------------------------------------
-                totalGoldGain += ganhoInteiro;
+                totalGoldGain += ganhoDiario;
 
-                if (includeDetails && includeDescriptions && ganhoInteiro > 0)
+                if (includeDetails && includeDescriptions && ganhoDiario > 0)
                 {
                     var line = L.T("finance_interest_city", "Bank interest ({CITY})");
                     line.SetTextVariable("CITY", townName);
-                    goldChange.Add(ganhoInteiro, line);
+                    goldChange.Add((float)ganhoDiario, line);
                 }
             }
 
             // =========================================================
-            // Exibição de mensagens de reinvestimento (após o loop)
+            // Exibição de mensagens de reinvestimento
             // =========================================================
             if (applyWithdrawals && reinvestCount > 0)
             {
                 if (reinvestCount <= 3)
                 {
-                    // Mostra todas as contas individualmente (sem resumo)
                     foreach (var (Town, Amount) in reinvestEntries)
                         ShowReinvestInfo(Town, Amount);
                 }
                 else
                 {
-                    // Mostra apenas o total consolidado (sem individuais)
                     ShowReinvestSummary(totalReinvested, reinvestCount);
                 }
             }
 
-            // Persiste dados atualizados
             if (applyWithdrawals && anyAutoReinvestChange)
+            {
                 try { behavior.SyncBankData(); } catch { }
+            }
 
-            // Consolidação no painel principal
-            if (totalGoldGain > 0.01f && !includeDetails)
+            if (totalGoldGain > 0.01d && !includeDetails)
                 goldChange.Add((float)Math.Round(totalGoldGain), consolidatedLabel);
         }
 
         // =========================================================
-        // Helper: cálculo individual de juros
+        // Helper: cálculo individual de juros (double precision)
         // =========================================================
-        private static int ComputeInterestForAccount(float amount, float prosperity)
+        private static double ComputeInterestForAccount(double amount, double prosperity)
         {
-            float p = Math.Max(prosperity, 1f);
+            double p = Math.Max(prosperity, 1d);
 
-            float rawSuavizador = PROSPERIDADE_BASE / p;
-            float fatorSuavizador = 0.7f + (rawSuavizador * 0.7f);
-            _ = fatorSuavizador;
+            double rawSuavizador = PROSPERIDADE_BASE / p;
+            _ = rawSuavizador;
 
-            // Incentivo à pobreza
-            float pobrezaRatio = Math.Max(0f, (PROSPERIDADE_BASE - p) / PROSPERIDADE_BASE);
-            float incentivoPobreza = (float)Math.Pow(pobrezaRatio, 1.05f) * 0.15f;
+            double pobrezaRatio = Math.Max(0d, (PROSPERIDADE_BASE - p) / PROSPERIDADE_BASE);
+            double incentivoPobreza = Math.Pow(pobrezaRatio, 1.05d) * 0.15d;
 
-            // Penalidade por riqueza
-            float penalidadeRiqueza = 0f;
+            double penalidadeRiqueza = 0d;
             if (p > PROSPERIDADE_ALTA)
             {
-                float excesso = Math.Max(0f, (p - PROSPERIDADE_ALTA) / (PROSPERIDADE_MAX - PROSPERIDADE_ALTA));
-                penalidadeRiqueza = (float)Math.Pow(excesso, 1f) * 0.025f;
+                double excesso = Math.Max(0d, (p - PROSPERIDADE_ALTA) / (PROSPERIDADE_MAX - PROSPERIDADE_ALTA));
+                penalidadeRiqueza = Math.Pow(excesso, 1d) * 0.025d;
             }
 
-            float taxaBase = 6.5f + (float)Math.Pow(PROSPERIDADE_BASE / p, 0.45f) * 6.0f;
-            taxaBase *= (1.0f + incentivoPobreza - penalidadeRiqueza);
+            double taxaBase = 6.5d + Math.Pow(PROSPERIDADE_BASE / p, 0.45d) * 6.0d;
+            taxaBase *= (1.0d + incentivoPobreza - penalidadeRiqueza);
 
-            float ajusteLog = 1.0f / (1.0f + (p / 25000.0f));
-            float taxaAnual = (float)Math.Round(taxaBase * (0.95f + ajusteLog * 0.15f), 2);
-            float taxaDiaria = taxaAnual / CICLO_DIAS;
+            double ajusteLog = 1.0d / (1.0d + (p / 25000.0d));
+            double taxaAnual = Math.Round(taxaBase * (0.95d + ajusteLog * 0.15d), 2);
+            double taxaDiaria = taxaAnual / CICLO_DIAS;
 
-            float rendimentoDia = amount * (taxaDiaria / 100f);
-            int ganhoInteiro = (int)Math.Round(rendimentoDia);
+            double rendimentoDia = amount * (taxaDiaria / 100d);
 
-            if (ganhoInteiro == 0 && rendimentoDia >= 0.5f)
-                ganhoInteiro = 1;
-
-            return Math.Max(ganhoInteiro, 0);
+            // Nenhum arredondamento precoce — mantém precisão de centavos
+            return Math.Max(rendimentoDia, 0d);
         }
 
         // =========================================================
         // Fallback defensivo — cálculo total independente
         // =========================================================
-        internal static int CalculateStandaloneDailyInterest()
+        internal static double CalculateStandaloneDailyInterest()
         {
             try
             {
@@ -260,33 +241,32 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 var hero = Hero.MainHero;
 
                 if (storage == null || hero == null || string.IsNullOrEmpty(hero.StringId))
-                    return 0;
+                    return 0d;
 
                 if (!storage.SavingsByPlayer.TryGetValue(hero.StringId, out var accounts) ||
                     accounts == null || accounts.Count == 0)
-                    return 0;
+                    return 0d;
 
-                float totalGoldGain = 0f;
+                double totalGoldGain = 0d;
 
                 foreach (var acc in accounts)
                 {
-                    if (acc?.Amount <= 0.01f)
+                    if (acc?.Amount <= 0.01d)
                         continue;
 
                     var settlement = Campaign.Current?.Settlements?.Find(s => s.StringId == acc.TownId);
                     if (settlement?.Town == null)
                         continue;
 
-                    int ganhoInteiro = ComputeInterestForAccount(acc.Amount, settlement.Town.Prosperity);
-                    if (ganhoInteiro > 0)
-                        totalGoldGain += ganhoInteiro;
+                    double ganho = ComputeInterestForAccount(acc.Amount, settlement.Town.Prosperity);
+                    totalGoldGain += ganho;
                 }
 
-                return totalGoldGain > 0.01f ? (int)Math.Round(totalGoldGain) : 0;
+                return totalGoldGain > 0.01d ? totalGoldGain : 0d;
             }
             catch
             {
-                return 0;
+                return 0d;
             }
         }
 
@@ -315,21 +295,23 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 if (loans == null || loans.Count == 0)
                     return;
 
-                float currentDay = (float)CampaignTime.Now.ToDays;
+                double currentDay = CampaignTime.Now.ToDays;
                 const int GRACE_DAYS = 5;
 
                 foreach (var loan in loans)
                 {
-                    if (loan.Remaining <= 0.01f || loan.DurationDays <= 0)
+                    if (loan.Remaining <= 0.01d || loan.DurationDays <= 0)
                         continue;
 
+
                     if (loan.CreatedAt <= 0f)
-                        loan.CreatedAt = currentDay - GRACE_DAYS;
+                        loan.CreatedAt = (float)(currentDay - GRACE_DAYS);
+
 
                     if (currentDay - loan.CreatedAt < GRACE_DAYS)
                         continue;
 
-                    int due = (int)Math.Ceiling(loan.Remaining / Math.Max(loan.DurationDays, 1));
+                    double due = loan.Remaining / Math.Max(loan.DurationDays, 1);
                     if (due <= 0)
                         continue;
 
@@ -339,61 +321,55 @@ namespace BanksOfCalradia.Source.Systems.Processing
                     var label = L.T("loan_payment_city", "Loan payment ({CITY})");
                     label.SetTextVariable("CITY", townName);
 
-                    goldChange.Add(-due, label);
+                    goldChange.Add(-(float)due, label);
                 }
             }
             catch
             {
-                // silencioso: não interrompe o painel
+                // silencioso
             }
         }
 
         // =========================================================
         // Mensagem individual de reinvestimento automático
         // =========================================================
-        private static void ShowReinvestInfo(string townName, int amount)
+        private static void ShowReinvestInfo(string townName, double amount)
         {
             try
             {
-                string icon = "<img src=\"General\\Icons\\Coin@2x\" extend=\"8\">";
                 string prefix = L.S("finance_auto_reinvest_msg", "Interest of");
                 string mid = L.S("finance_auto_reinvest_to", "added to savings in");
 
-                string msg = $"{prefix} +{BankUtils.FmtDenars(amount)} {mid} {townName} {icon}";
-
+                // FmtDenars já contém o ícone da moeda
+                string msg = $"{prefix} +{BankUtils.FmtDenars(amount)} {mid} {townName}";
                 InformationManager.DisplayMessage(new InformationMessage(msg, Color.FromUint(0xFFEEEEEE)));
             }
             catch { }
         }
 
+
         // =========================================================
         // Mensagem consolidada de reinvestimento automático
         // =========================================================
-        private static void ShowReinvestSummary(float totalAmount, int count)
+        private static void ShowReinvestSummary(double totalAmount, int count)
         {
             try
             {
-                string icon = "<img src=\"General\\Icons\\Coin@2x\" extend=\"8\">";
-
-                // Partes sem variáveis
                 string prefix = L.S("finance_auto_reinvest_summary_1", "Automatic reinvestment completed:");
                 string mid = L.S("finance_auto_reinvest_summary_2", "Total of");
 
-                // Parte com variável {COUNT}: use TextObject para setar a variável
                 TextObject suffixObj = L.T("finance_auto_reinvest_summary_3", "added across {COUNT} bank accounts.");
                 suffixObj.SetTextVariable("COUNT", count);
                 string suffix = suffixObj.ToString();
 
-                string msg = $"{prefix} {mid} +{BankUtils.FmtDenars((int)totalAmount)} {suffix} {icon}";
+                // FmtDenars já contém o ícone da moeda
+                string msg = $"{prefix} {mid} +{BankUtils.FmtDenars(totalAmount)} {suffix}";
 
                 InformationManager.DisplayMessage(
                     new InformationMessage(msg, Color.FromUint(0xFFEEEEEE))
                 );
             }
-            catch
-            {
-                // silencioso
-            }
+            catch { }
         }
 
 

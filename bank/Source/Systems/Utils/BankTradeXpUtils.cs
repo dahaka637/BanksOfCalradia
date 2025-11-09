@@ -1,9 +1,10 @@
 ﻿// ============================================
 // BanksOfCalradia - BankTradeXpUtils.cs
 // Author: Dahaka
-// Version: 1.0.0
+// Version: 1.1.0 (Double Safe Precision)
 // Description:
-//   Handles daily Trade XP gain based on banking profits.
+//   Handles daily Trade XP gain based on banking profits
+//   Now fully compatible with double-precision investments.
 // ============================================
 
 using System;
@@ -18,7 +19,7 @@ namespace BanksOfCalradia.Source.Systems.Utils
 {
     public static class BankTradeXpUtils
     {
-        private const float TradeXpMultiplier = 0.00025f;
+        private const double TradeXpMultiplier = 0.00029d;
 
         public static void ApplyDailyTradeXp(BankStorage storage)
         {
@@ -32,46 +33,51 @@ namespace BanksOfCalradia.Source.Systems.Utils
                     accounts == null || accounts.Count == 0)
                     return;
 
-                float totalDailyGain = 0f;
+                double totalDailyGain = 0d;
 
                 foreach (var acc in accounts)
                 {
-                    if (acc.Amount <= 0.01f)
+                    if (acc.Amount <= 0.01)
                         continue;
 
                     var settlement = Campaign.Current?.Settlements?.Find(s => s.StringId == acc.TownId);
                     if (settlement?.Town == null)
                         continue;
 
-                    float prosperity = settlement.Town.Prosperity;
+                    double prosperity = settlement.Town.Prosperity;
 
-                    const float fator = 250f;
-                    const float prosperidadeBase = 7000f;
-                    float rawSuavizador = prosperity / prosperidadeBase;
-                    float fatorSuavizador = 0.5f + rawSuavizador * 0.5f;
-                    float taxaAnual = prosperity / fator * fatorSuavizador;
-                    float taxaDiaria = taxaAnual / 120f;
+                    const double fator = 250d;
+                    const double prosperidadeBase = 7000d;
+                    double rawSuavizador = prosperity / prosperidadeBase;
+                    double fatorSuavizador = 0.5d + rawSuavizador * 0.5d;
+                    double taxaAnual = prosperity / fator * fatorSuavizador;
+                    double taxaDiaria = taxaAnual / 120d;
 
-                    totalDailyGain += acc.Amount * (taxaDiaria / 100f);
+                    totalDailyGain += acc.Amount * (taxaDiaria / 100d);
                 }
 
-                if (totalDailyGain <= 1f)
+                if (totalDailyGain <= 1d)
                     return;
 
-                float logComponent = MathF.Log10(totalDailyGain / 2f + 10f);
-                float damp = 1f / (1f + (totalDailyGain / 8000f));
-                float xpRaw = MathF.Pow(logComponent, 0.85f) * (totalDailyGain * TradeXpMultiplier * 0.8f * damp);
+                double logComponent = Math.Log10(totalDailyGain / 2d + 10d);
+                double damp = 1d / (1d + (totalDailyGain / 12000d));
+                double xpRaw = Math.Pow(logComponent, 0.85d) * (totalDailyGain * TradeXpMultiplier * 0.8d * damp);
 
-                if (xpRaw >= 0.1f)
+                // Conversão final para float (Trade XP usa float internamente)
+                float xpToAdd = (float)Math.Max(0d, xpRaw);
+
+                if (xpToAdd >= 0.1f)
                 {
-                    hero.AddSkillXp(DefaultSkills.Trade, xpRaw);
+                    hero.AddSkillXp(DefaultSkills.Trade, xpToAdd);
                 }
             }
             catch (Exception ex)
             {
                 var msg = L.T("trade_xp_error", "[BanksOfCalradia][Trade XP Error] {ERROR}");
                 msg.SetTextVariable("ERROR", ex.Message);
-                InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(0xFFFF5555)));
+                InformationManager.DisplayMessage(
+                    new InformationMessage(msg.ToString(), Color.FromUint(0xFFFF5555))
+                );
             }
         }
     }

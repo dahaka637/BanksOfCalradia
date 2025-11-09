@@ -23,67 +23,122 @@ namespace BanksOfCalradia.Source.Core
         /// 0.02 → "2 %"
         /// 2.0  → "2 %"
         /// </summary>
-        public static string FmtPct(float v)
+        public static string FmtPct(double v)
         {
-            if (float.IsNaN(v) || float.IsInfinity(v))
+            if (double.IsNaN(v) || double.IsInfinity(v))
                 return "0 %";
 
-            // Se for negativo, mostra 0 %
-            if (v < 0f)
-                v = 0f;
+            if (v < 0d)
+                v = 0d;
 
-            // Se já parece percentual (>= 1), usa direto,
-            // senão converte de fração para porcentagem.
-            float displayValue = v >= 1f ? v : v * 100f;
-
+            double displayValue = v >= 1d ? v : v * 100d;
             return displayValue.ToString("0.##", CultureInfo.InvariantCulture) + " %";
         }
 
         /// <summary>
-        /// Formata em denares com separador de milhar e sufixo em português.
-        /// Mantido por compatibilidade com o código já existente.
+        /// Formata grandes valores em denares com abreviação automática:
+        /// K = mil, M = milhão, B = bilhão, T = trilhão, Q = quatrilhão.
         /// </summary>
-        public static string FmtDenars(float v)
+        // =========================================================
+        // Exibe valores abreviados sem centavos (K / M / B / T)
+        // =========================================================
+        // =========================================================
+        // Exibe valores abreviados (K / M / B / T)
+        // - Sem exibir centavos para valores inteiros
+        // - Mostra até 2 casas apenas nas abreviações
+        // =========================================================
+        public static string FmtDenars(double value)
         {
-            var rounded = MathF.Round(v);
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                "{0:N0}",
-                rounded
-            );
+            try
+            {
+                double abs = Math.Abs(value);
+                string suffix;
+                double shortVal;
+
+                if (abs >= 1_000_000_000_000)
+                {
+                    shortVal = value / 1_000_000_000_000d;
+                    suffix = "T";
+                }
+                else if (abs >= 1_000_000_000)
+                {
+                    shortVal = value / 1_000_000_000d;
+                    suffix = "B";
+                }
+                else if (abs >= 1_000_000)
+                {
+                    shortVal = value / 1_000_000d;
+                    suffix = "M";
+                }
+                else if (abs >= 1_000)
+                {
+                    shortVal = value / 1_000d;
+                    suffix = "K";
+                }
+                else
+                {
+                    shortVal = value;
+                    suffix = "";
+                }
+
+                string icon = "<img src=\"General\\Icons\\Coin@2x\" extend=\"8\">";
+
+                // 🔹 Inteiros: sem casas decimais
+                // 🔹 Abreviados: até 2 casas significativas
+                string formatted = abs < 1_000 ? shortVal.ToString("N0") : shortVal.ToString("0.##");
+
+                return $"{formatted}{suffix} {icon}";
+            }
+            catch
+            {
+                return value.ToString("N0");
+            }
         }
+
+
+
+
+        // =========================================================
+        // Exibe valores completos sem centavos + ícone da moeda
+        // =========================================================
+        public static string FmtDenarsFull(double value)
+        {
+            try
+            {
+                string formatted = string.Format("{0:N0}", value);
+                string icon = "<img src=\"General\\Icons\\Coin@2x\" extend=\"8\">";
+                return $"{formatted} {icon}";
+            }
+            catch
+            {
+                return value.ToString("N0");
+            }
+        }
+
+
+
 
         /// <summary>
-        /// Versão localizada de FmtDenars. Usa a chave de idioma para o rótulo da moeda.
-        /// Ex.: "1,250 denars" / "1.250 denares" / "1.250 dinares"
+        /// Versão localizada de FmtDenars. Usa chave de idioma para a moeda.
         /// </summary>
-        public static string FmtDenarsL(float v)
+        public static string FmtDenarsL(double v)
         {
-            var rounded = MathF.Round(v);
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                "{0:N0}",
-                rounded
-            );
+            return FmtDenars(v); // delega ao formato principal
         }
-
 
         /// <summary>
         /// Apenas o número de denares, sem texto.
         /// Útil para logs internos ou cálculos.
         /// </summary>
-        public static string FmtNumber(float v)
+        public static string FmtNumber(double v)
         {
-            return MathF.Round(v).ToString("N0", CultureInfo.InvariantCulture);
+            return Math.Round(v).ToString("N0", CultureInfo.InvariantCulture);
         }
 
         // ============================================================
         // Financial helpers
         // ============================================================
 
-        /// <summary>
-        /// APY da poupança baseado na prosperidade.
-        /// </summary>
         public static float CalcSavingsAnnualRate(float prosperity)
         {
             const float maxAPY = 0.45f;
@@ -93,10 +148,6 @@ namespace BanksOfCalradia.Source.Core
             return maxAPY * factor;
         }
 
-        /// <summary>
-        /// APR do empréstimo baseado em prosperidade e renome.
-        /// Garante APR mínimo.
-        /// </summary>
         public static float CalcLoanAnnualRate(float prosperity, float renown)
         {
             const float baseAPR = 0.50f;
@@ -106,9 +157,6 @@ namespace BanksOfCalradia.Source.Core
             return MathF.Max(0.05f, apr);
         }
 
-        /// <summary>
-        /// Taxa diária de multa baseada na economia da cidade.
-        /// </summary>
         public static float CalcLateFeeDailyRate(float prosperity)
         {
             const float baseFee = 0.03f;
@@ -116,9 +164,6 @@ namespace BanksOfCalradia.Source.Core
             return baseFee * mult;
         }
 
-        /// <summary>
-        /// Limite bruto de empréstimo baseado em prosperidade e renome.
-        /// </summary>
         public static float CalcLoanLimit(float prosperity, float renown)
         {
             return prosperity * (renown / 10f) * 0.8f;
@@ -128,27 +173,17 @@ namespace BanksOfCalradia.Source.Core
         // Rate normalization helpers
         // ============================================================
 
-        /// <summary>
-        /// Normaliza taxa que pode vir em % (2.0) ou fração (0.02) para fração.
-        /// 2.0 → 0.02 ; 0.02 → 0.02
-        /// </summary>
         public static float ToFractionRate(float rate)
         {
             if (float.IsNaN(rate) || float.IsInfinity(rate) || rate <= 0f)
                 return 0f;
-
             return rate > 1f ? rate / 100f : rate;
         }
 
-        /// <summary>
-        /// Normaliza taxa que pode vir em fração (0.02) ou % (2.0) para percentual.
-        /// 0.02 → 2.0 ; 2.0 → 2.0
-        /// </summary>
         public static float ToPercentRate(float rate)
         {
             if (float.IsNaN(rate) || float.IsInfinity(rate) || rate <= 0f)
                 return 0f;
-
             return rate < 1f ? rate * 100f : rate;
         }
     }

@@ -38,12 +38,15 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 if (FinanceProcessor.IsActiveModel())
                     return;
 
-                int interest = FinanceProcessor.CalculateStandaloneDailyInterest();
-                if (interest <= 0)
+                double interest = FinanceProcessor.CalculateStandaloneDailyInterest();
+                int interestInt = (int)Math.Floor(interest);
+
+                if (interestInt <= 0)
                     return;
 
                 var hero = Hero.MainHero;
-                hero?.ChangeHeroGold(interest);
+                hero?.ChangeHeroGold(interestInt);
+
 
 #if DEBUG
                 InformationManager.DisplayMessage(new InformationMessage(

@@ -6,13 +6,17 @@ namespace BanksOfCalradia.Source.Systems.Data
     {
         public string TownId { get; set; }
         public string PlayerId { get; set; }
-        public float Amount { get; set; }
 
-        // 🔹 Campo de acúmulo de juros fracionados (para evitar perda de precisão)
-        public float PendingInterest { get; set; } = 0f;
+        // Armazenamento em double, compatível com versões antigas (float)
+        private double _amount;
+        public double Amount
+        {
+            get => _amount;
+            set => _amount = value;
+        }
 
-        // 🔹 Novo campo: se verdadeiro, os juros são automaticamente reinvestidos
-        // (modo de débito automático / juros compostos)
+        public double PendingInterest { get; set; } = 0d;
         public bool AutoReinvest { get; set; } = false;
     }
+
 }

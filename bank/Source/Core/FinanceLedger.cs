@@ -1,12 +1,13 @@
 ﻿// ============================================
 // BanksOfCalradia - FinanceLedger.cs
 // Author: Dahaka
-// Version: 3.1.0 (Localization + Cleanup)
+// Version: 3.2.0 (Double Safe + Localization)
 // Description:
 //   Unified financial ledger for BanksOfCalradia.
+//   - Full double-precision for all monetary fields
 //   - Registers bank interests, deposits, withdrawals
-//   - Can apply records to real gold
-//   - Can be used as an in-memory audit per player
+//   - Safe hero gold application (overflow guarded)
+//   - In-memory audit per player, save-compatible
 // ============================================
 
 using BanksOfCalradia.Source.Systems;
@@ -26,7 +27,7 @@ namespace BanksOfCalradia.Source.Core
         public string PlayerId { get; set; }        // Hero.StringId
         public string Source { get; set; }          // BANK, LOAN, SYSTEM...
         public string Description { get; set; }     // Localized description/fallback
-        public float Amount { get; set; }           // Raw value (can be negative)
+        public double Amount { get; set; }          // Raw value (can be negative, now double)
         public string Currency { get; set; } = "Denar";
         public double Timestamp { get; set; }       // CampaignTime in days
         public bool Applied { get; set; }           // True when gold was actually modified
@@ -34,8 +35,7 @@ namespace BanksOfCalradia.Source.Core
 
     /// <summary>
     /// In-memory ledger for bank-related financial events.
-    /// Not persisted automatically here; intended to be serialized
-    /// together with other bank data structures.
+    /// Safe for very large transactions (double precision).
     /// </summary>
     public class FinanceLedger
     {
@@ -47,7 +47,7 @@ namespace BanksOfCalradia.Source.Core
         // ============================================================
         // Create a new record (optionally apply immediately)
         // ============================================================
-        public FinanceRecord Add(string playerId, string source, string description, float amount, bool applyNow = false)
+        public FinanceRecord Add(string playerId, string source, string description, double amount, bool applyNow = false)
         {
             if (string.IsNullOrWhiteSpace(playerId))
                 throw new ArgumentException("Invalid playerId.");
@@ -105,7 +105,12 @@ namespace BanksOfCalradia.Source.Core
                     return;
                 }
 
-                int delta = MathF.Round(record.Amount);
+                double safeAmount = record.Amount < -9.22e9 ? -9.22e9 :
+                    record.Amount > 9.22e9 ? 9.22e9 :
+                    record.Amount;
+
+                int delta = (int)Math.Round(safeAmount, MidpointRounding.AwayFromZero);
+
                 if (delta == 0)
                 {
                     record.Applied = true;
@@ -160,22 +165,22 @@ namespace BanksOfCalradia.Source.Core
                 if (storage == null || !storage.SavingsByPlayer.TryGetValue(hero.StringId, out var accounts))
                     return;
 
-                float totalInterest = 0f;
+                double totalInterest = 0d;
 
                 foreach (var acc in accounts)
                 {
-                    if (acc.Amount <= 0.01f)
+                    if (acc.Amount <= 0.01)
                         continue;
 
                     var settlement = Campaign.Current.Settlements.Find(s => s.StringId == acc.TownId);
-                    float prosperity = settlement?.Town?.Prosperity ?? 0f;
+                    double prosperity = settlement?.Town?.Prosperity ?? 0d;
 
                     // Trainer-style APY
-                    float annualRate = BankUtils.CalcSavingsAnnualRate(prosperity);
-                    float dailyRate = annualRate / 365f;
-                    float gain = acc.Amount * dailyRate;
+                    double annualRate = BankUtils.CalcSavingsAnnualRate((float)prosperity);
+                    double dailyRate = annualRate / 365d;
+                    double gain = acc.Amount * (dailyRate / 100d);
 
-                    if (gain <= 0.01f)
+                    if (gain <= 0.01)
                         continue;
 
                     totalInterest += gain;
@@ -188,16 +193,14 @@ namespace BanksOfCalradia.Source.Core
                     Add(hero.StringId, "BANK", desc.ToString(), gain, applyNow: false);
                 }
 
-                if (totalInterest > 0.01f)
+                if (totalInterest > 0.01)
                 {
-                    // This part keeps the original idea: create an ExplainedNumber
-                    // so that the game can show this as part of the income breakdown.
                     var label = L.T("ledger_interest_label", "Bank Interest");
 
                     var explained = Campaign.Current.Models.ClanFinanceModel
                         .CalculateClanIncome(clan, includeDescriptions: true, applyWithdrawals: false, includeDetails: false);
 
-                    explained.Add(totalInterest, label);
+                    explained.Add((float)totalInterest, label);
 
                     if (VERBOSE)
                     {
@@ -236,9 +239,9 @@ namespace BanksOfCalradia.Source.Core
                 r.Source.Equals(sourceFilter, StringComparison.OrdinalIgnoreCase));
         }
 
-        public float GetBalance(string playerId, string sourceFilter = null)
+        public double GetBalance(string playerId, string sourceFilter = null)
         {
-            float total = 0f;
+            double total = 0d;
             foreach (var record in GetRecords(playerId, sourceFilter))
                 total += record.Amount;
             return total;
@@ -283,6 +286,5 @@ namespace BanksOfCalradia.Source.Core
                 msg, Color.FromUint(0xFFAAEEAA)
             ));
         }
-
     }
 }

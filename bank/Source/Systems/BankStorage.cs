@@ -60,13 +60,14 @@ namespace BanksOfCalradia.Source.Systems
                 {
                     PlayerId = playerId,
                     TownId = townId,
-                    Amount = 0f
+                    Amount = 0d // ✅ Corrigido para double (antes 0f)
                 };
                 list.Add(entry);
             }
 
             return entry;
         }
+
 
         // ============================================================
         // Loans

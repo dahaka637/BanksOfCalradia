@@ -312,9 +312,9 @@ namespace BanksOfCalradia.Source.Systems.Processing
 
             if (paidAmount > 0)
             {
-                string icon = "<img src=\"General\\Icons\\Coin@2x\" extend=\"8\">";
                 string prefix = L.S("loan_installment_paid_icon", "Installment paid:");
-                string paidLine = prefix + " -" + BankUtils.FmtDenars(paidAmount) + " " + icon;
+                // FmtDenars já inclui o ícone da moeda
+                string paidLine = $"{prefix} -{BankUtils.FmtDenars(paidAmount)}";
 
                 InformationManager.DisplayMessage(new InformationMessage(
                     paidLine,
@@ -327,6 +327,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
                 Color.FromUint(0xFFEEEEEE)
             ));
         }
+
 
         private static void ShowPenalty(string msg)
         {
