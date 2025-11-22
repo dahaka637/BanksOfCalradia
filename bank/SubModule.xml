@@ -7,16 +7,16 @@
 
 	<Name value="Banks of Calradia"/>
 	<Id value="BanksOfCalradia"/>
-	<Version value="v1.0.8.0"/>
+	<Version value="v1.0.9.0"/>
 	<SingleplayerModule value="true"/>
 	<MultiplayerModule value="false"/>
 
 	<!-- Dependências obrigatórias -->
 	<DependedModules>
-		<DependedModule Id="Native" DependentVersion="v1.3.2.96234" Optional="false"/>
-		<DependedModule Id="SandBoxCore" DependentVersion="v1.3.2.96234" Optional="false"/>
-		<DependedModule Id="Sandbox" DependentVersion="v1.3.2.96234" Optional="false"/>
-		<DependedModule Id="StoryMode" DependentVersion="v1.3.2.96234" Optional="true"/>
+		<DependedModule Id="Native" DependentVersion="v1.3.3.100089" Optional="false"/>
+		<DependedModule Id="SandBoxCore" DependentVersion="v1.3.3.100089" Optional="false"/>
+		<DependedModule Id="Sandbox" DependentVersion="v1.3.3.100089" Optional="false"/>
+		<DependedModule Id="StoryMode" DependentVersion="v1.3.3.100089" Optional="true"/>
 	</DependedModules>
 
 	<!-- Núcleo do módulo -->

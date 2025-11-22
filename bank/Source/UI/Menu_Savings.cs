@@ -139,8 +139,13 @@ namespace BanksOfCalradia.Source.UI
         // ============================================
         // Register savings menus
         // ============================================
+        private static bool _registered;
         public static void RegisterMenu(CampaignGameStarter starter, BankCampaignBehavior behavior)
         {
+
+            if (_registered)
+                return;
+            _registered = true;
             // Main savings menu
             starter.AddGameMenu(
                 "bank_savings",
