@@ -106,35 +106,46 @@ namespace BanksOfCalradia.Source.UI
         private static float GetDynamicWithdrawFee(Settlement settlement)
         {
             if (settlement?.Town == null)
-                return 0.02f; // fallback 2 %
+                return 0.01f; // fallback reduzido: 1 %
 
             float prosperity = settlement.Town.Prosperity;
             float security = settlement.Town.Security;
             float loyalty = settlement.Town.Loyalty;
 
-            const float MinFee = 0.0000f;
-            const float MaxFee = 0.1000f;
+            // Agora muito menos punitivo:
+            const float MinFee = 0.0000f;   // 0%
+            const float MaxFee = 0.0500f;   // antes 10% → agora 5%
             const float ProsperityRef = 10000f;
-            const float RiskGamma = 1.30f;
+            const float RiskGamma = 1.30f;  // mantém suavização comportamental
 
+            // Pesos iguais
             const float wP = 0.55f;
             const float wS = 0.30f;
             const float wL = 0.15f;
 
+            // Riscos base
             float pRisk = 1f - MathF.Clamp(prosperity / ProsperityRef, 0f, 1f);
             float sRisk = MathF.Clamp((100f - security) / 100f, 0f, 1f);
             float lRisk = MathF.Clamp((100f - loyalty) / 100f, 0f, 1f);
 
+            // Soma ponderada
             float combined = (pRisk * wP) + (sRisk * wS) + (lRisk * wL);
+
+            // Curva gamma
             float curved = MathF.Pow(MathF.Clamp(combined, 0f, 1f), RiskGamma);
+
+            // Taxa bruta
             float fee = MinFee + (MaxFee - MinFee) * curved;
 
+            // Bônus por estabilidade agora mais forte
             float stability = 1f - combined;
-            float rebate = MathF.Pow(stability, 4f) * 0.002f;
+            float rebate = MathF.Pow(stability, 4f) * 0.004f; // dobro do desconto original
             fee = MathF.Max(MinFee, fee - rebate);
 
+            // Limite final
             return MathF.Clamp(fee, MinFee, MaxFee);
         }
+
 
         // ============================================
         // Register savings menus
@@ -157,12 +168,12 @@ namespace BanksOfCalradia.Source.UI
             starter.AddGameMenuOption("bank_savings", "savings_deposit",
                 L.S("savings_menu_deposit", "Deposit Money"),
                 args => { args.optionLeaveType = GameMenuOption.LeaveType.Submenu; return true; },
-                _ => SafeSwitchToMenu("bank_savings_deposit"), false);
+                _ => BankSafeUI.Switch("bank_savings_deposit"), false);
 
             starter.AddGameMenuOption("bank_savings", "savings_withdraw",
                 L.S("savings_menu_withdraw", "Withdraw Money"),
                 args => { args.optionLeaveType = GameMenuOption.LeaveType.Submenu; return true; },
-                _ => SafeSwitchToMenu("bank_savings_withdraw"), false);
+                _ => BankSafeUI.Switch("bank_savings_withdraw"), false);
 
             starter.AddGameMenuOption("bank_savings", "savings_toggle_reinvest",
                 L.S("savings_toggle_reinvest", "Toggle Auto-Reinvestment"),
@@ -172,7 +183,7 @@ namespace BanksOfCalradia.Source.UI
             starter.AddGameMenuOption("bank_savings", "savings_back",
                 L.S("savings_menu_back", "Return to Bank"),
                 args => { args.optionLeaveType = GameMenuOption.LeaveType.Leave; return true; },
-                _ => SafeSwitchToMenu("bank_menu"), true);
+                _ => BankSafeUI.Switch("bank_menu"), true);
 
             RegisterDepositMenu(starter, behavior);
             RegisterWithdrawMenu(starter, behavior);
@@ -313,7 +324,7 @@ namespace BanksOfCalradia.Source.UI
             starter.AddGameMenuOption("bank_savings_deposit", "deposit_back",
                 L.S("savings_deposit_back", "Back to Savings"),
                 a => { a.optionLeaveType = GameMenuOption.LeaveType.Leave; return true; },
-                _ => SafeSwitchToMenu("bank_savings"), true);
+                _ => BankSafeUI.Switch("bank_savings"), true);
         }
 
         private static void TryDepositAll(BankCampaignBehavior behavior)
@@ -339,7 +350,8 @@ namespace BanksOfCalradia.Source.UI
             msg.SetTextVariable("BALANCE", BankUtils.FmtDenars(acct.Amount));
 
             InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(BankUtils.UiGold)));
-            SafeSwitchToMenu("bank_savings_deposit");
+            BankSafeUI.Switch("bank_savings_deposit");
+
         }
 
         private static void TryDepositFixed(BankCampaignBehavior behavior, int amount)
@@ -366,7 +378,8 @@ namespace BanksOfCalradia.Source.UI
             msg.SetTextVariable("BALANCE", BankUtils.FmtDenars(acct.Amount));
 
             InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(BankUtils.UiGold)));
-            SafeSwitchToMenu("bank_savings_deposit");
+            BankSafeUI.Switch("bank_savings_deposit");
+
         }
 
         private static void PromptCustomDeposit(BankCampaignBehavior behavior)
@@ -410,7 +423,7 @@ namespace BanksOfCalradia.Source.UI
                     msg.SetTextVariable("BALANCE", BankUtils.FmtDenars(acct.Amount));
 
                     InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(BankUtils.UiGold)));
-                    SafeSwitchToMenu("bank_savings_deposit");
+                    BankSafeUI.Switch("bank_savings_deposit");
                 },
                 () => { }
             ));
@@ -440,7 +453,8 @@ namespace BanksOfCalradia.Source.UI
             ));
 
             // Recarrega o menu principal para atualizar o texto
-            SafeSwitchToMenu("bank_savings");
+            BankSafeUI.Switch("bank_savings");
+
         }
 
         // ============================================
@@ -503,7 +517,7 @@ namespace BanksOfCalradia.Source.UI
             starter.AddGameMenuOption("bank_savings_withdraw", "withdraw_back",
                 L.S("savings_withdraw_back", "Back to Savings"),
                 a => { a.optionLeaveType = GameMenuOption.LeaveType.Leave; return true; },
-                _ => SafeSwitchToMenu("bank_savings"), true);
+                _ => BankSafeUI.Switch("bank_savings"), true);
         }
 
         private static void TryWithdrawAll(BankCampaignBehavior behavior)
@@ -538,7 +552,8 @@ namespace BanksOfCalradia.Source.UI
             msg.SetTextVariable("BAL", BankUtils.FmtDenars(acct.Amount));
 
             InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(BankUtils.UiGold)));
-            SafeSwitchToMenu("bank_savings_withdraw");
+            BankSafeUI.Switch("bank_savings_withdraw");
+
         }
 
         private static void TryWithdrawFixed(BankCampaignBehavior behavior, int gross)
@@ -576,7 +591,8 @@ namespace BanksOfCalradia.Source.UI
             msg.SetTextVariable("BAL", BankUtils.FmtDenars(acct.Amount));
 
             InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(BankUtils.UiGold)));
-            SafeSwitchToMenu("bank_savings_withdraw");
+            BankSafeUI.Switch("bank_savings_withdraw");
+
         }
 
         private static void PromptCustomWithdraw(BankCampaignBehavior behavior)
@@ -629,7 +645,7 @@ namespace BanksOfCalradia.Source.UI
                     msg.SetTextVariable("BAL", BankUtils.FmtDenars(acct.Amount));
 
                     InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(BankUtils.UiGold)));
-                    SafeSwitchToMenu("bank_savings_withdraw");
+                    BankSafeUI.Switch("bank_savings_withdraw");
                 },
                 () => { }
             ));

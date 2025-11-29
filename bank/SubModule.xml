@@ -2,17 +2,18 @@
 <Module>
 	<Name value="Banks of Calradia"/>
 	<Id value="BanksOfCalradia"/>
-	<Version value="v1.1.0.0"/>
+	<Version value="v1.3.7.0"/>
 
 	<SingleplayerModule value="true"/>
 	<MultiplayerModule value="false"/>
 
-	<!-- Dependências oficiais do Bannerlord (versão 1.3.5.102453) -->
+	<!-- Dependências oficiais para Bannerlord 1.3.7.102919 -->
 	<DependedModules>
-		<DependedModule Id="Native"        DependentVersion="v1.3.5.102453" Optional="false"/>
-		<DependedModule Id="SandBoxCore"   DependentVersion="v1.3.5.102453" Optional="false"/>
-		<DependedModule Id="Sandbox"       DependentVersion="v1.3.5.102453" Optional="false"/>
-		<DependedModule Id="StoryMode"     DependentVersion="v1.3.5.102453" Optional="true"/>
+		<DependedModule Id="Native"          DependentVersion="v1.3.7.102919" Optional="false"/>
+		<DependedModule Id="SandBoxCore"     DependentVersion="v1.3.7.102919" Optional="false"/>
+		<DependedModule Id="Sandbox"         DependentVersion="v1.3.7.102919" Optional="false"/>
+		<DependedModule Id="CustomBattle"    DependentVersion="v1.3.7.102919" Optional="false"/>
+		<DependedModule Id="StoryMode"       DependentVersion="v1.3.7.102919" Optional="true"/>
 	</DependedModules>
 
 	<SubModules>

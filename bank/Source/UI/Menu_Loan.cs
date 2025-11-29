@@ -64,7 +64,8 @@ namespace BanksOfCalradia.Source.UI
                     args.optionLeaveType = GameMenuOption.LeaveType.Submenu;
                     return true;
                 },
-                _ => SafeSwitchToMenu("bank_loan_request")
+                _ => BankSafeUI.Switch("bank_loan_request")
+
             );
 
             // Opção: pagar empréstimos (menu é criado no BankMenu_LoanPay)
@@ -77,7 +78,8 @@ namespace BanksOfCalradia.Source.UI
                     args.optionLeaveType = GameMenuOption.LeaveType.Submenu;
                     return true;
                 },
-                _ => SafeSwitchToMenu("bank_loan_pay")
+                _ => BankSafeUI.Switch("bank_loan_pay")
+
             );
 
             // Opção: voltar ao banco
@@ -90,7 +92,8 @@ namespace BanksOfCalradia.Source.UI
                     args.optionLeaveType = GameMenuOption.LeaveType.Leave;
                     return true;
                 },
-                _ => SafeSwitchToMenu("bank_menu")
+                _ => BankSafeUI.Switch("bank_menu")
+
             );
 
             // Submenu de simulação/contratação
@@ -152,8 +155,9 @@ namespace BanksOfCalradia.Source.UI
                 _ =>
                 {
                     ClearSimulation();
-                    SafeSwitchToMenu("bank_loanmenu");
+                    BankSafeUI.Switch("bank_loanmenu");
                 }
+
             );
         }
 
@@ -424,7 +428,8 @@ namespace BanksOfCalradia.Source.UI
                                 ));
 
                                 ClearSimulation();
-                                SafeSwitchToMenu("bank_loanmenu");
+                                BankSafeUI.Switch("bank_loanmenu");
+
                             }
                             catch (Exception ex)
                             {
@@ -434,7 +439,7 @@ namespace BanksOfCalradia.Source.UI
                         () =>
                         {
                             // Cancelar — apenas retorna ao menu sem alterações
-                            SafeSwitchToMenu("bank_loan_request");
+                            BankSafeUI.Switch("bank_loan_request");
                         }
                     ),
                     true
@@ -492,7 +497,8 @@ namespace BanksOfCalradia.Source.UI
 
                     // Segurança: não deixar valor negativo ou bizarro
                     _sim.RequestedAmount = Math.Max(0, val);
-                    SafeSwitchToMenu("bank_loan_request");
+                    BankSafeUI.Switch("bank_loan_request");
+
                 },
                 negativeAction: null
             ));
@@ -516,7 +522,7 @@ namespace BanksOfCalradia.Source.UI
                     }
 
                     _sim.Installments = ClampInt(n, 1, 360);
-                    SafeSwitchToMenu("bank_loan_request");
+                    BankSafeUI.Switch("bank_loan_request");
                 },
                 negativeAction: null
             ));

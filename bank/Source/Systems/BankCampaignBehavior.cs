@@ -96,7 +96,7 @@ namespace BanksOfCalradia.Source.Systems
                 "visit_bank",
                 L.S("visit_option", "Visit the Bank"),
                 MenuCondition_SetDynamicLabel,
-                _ => GameMenu.SwitchToMenu("bank_menu"),
+                _ => BankSafeUI.Switch("bank_menu"),
                 isLeave: false
             );
 
@@ -107,7 +107,8 @@ namespace BanksOfCalradia.Source.Systems
                 "bank_savings",
                 L.S("open_savings", "Access Savings Account"),
                 a => { a.optionLeaveType = GameMenuOption.LeaveType.Submenu; return true; },
-                _ => GameMenu.SwitchToMenu("bank_savings")
+                _ => BankSafeUI.Switch("bank_savings")
+
             );
 
             starter.AddGameMenuOption(
@@ -115,7 +116,8 @@ namespace BanksOfCalradia.Source.Systems
                 "bank_loans",
                 L.S("open_loans", "Access Loan Services"),
                 a => { a.optionLeaveType = GameMenuOption.LeaveType.Submenu; return true; },
-                _ => GameMenu.SwitchToMenu("bank_loanmenu")
+                _ => BankSafeUI.Switch("bank_loanmenu")
+
             );
 
             starter.AddGameMenuOption(
@@ -123,7 +125,8 @@ namespace BanksOfCalradia.Source.Systems
                 "bank_back",
                 L.S("return_city", "Return to Town"),
                 a => { a.optionLeaveType = GameMenuOption.LeaveType.Leave; return true; },
-                _ => GameMenu.SwitchToMenu("town"),
+                _ => BankSafeUI.Switch("town"),
+
                 isLeave: true
             );
         }
@@ -148,18 +151,33 @@ namespace BanksOfCalradia.Source.Systems
             text.SetTextVariable("CITY", townName);
             return text.ToString();
         }
-
         // ============================================
         // Daily Tick Delegates
         // ============================================
         private void OnDailyTick()
         {
-            // 🔹 Atualiza sucessões bancárias (herança de contas)
-            BankSuccessionUtils.CheckAndTransferOwnership(_bankStorage);
+            try
+            {
+                // Sucessão bancária (herança das contas)
+                BankSuccessionUtils.CheckAndTransferOwnership(_bankStorage);
+            }
+            catch
+            {
+                // Silencioso em produção
+            }
 
-            // 🔹 Aplica XP de comércio baseado nos lucros bancários
-            BankTradeXpUtils.ApplyDailyTradeXp(_bankStorage);
+            try
+            {
+                // XP baseado nos lucros diários das contas
+                BankTradeXpUtils.ApplyDailyTradeXp(_bankStorage);
+            }
+            catch
+            {
+                // Silencioso em produção
+            }
         }
+
+
 
         // ============================================
         // Manual Sync Utility

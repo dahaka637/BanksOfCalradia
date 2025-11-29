@@ -1,17 +1,16 @@
 ﻿// ============================================
 // BanksOfCalradia - BankTradeXpUtils.cs
 // Author: Dahaka
-// Version: 1.1.0 (Double Safe Precision)
+// Version: 2.1.0 (XP Curve + Production Ready)
 // Description:
-//   Handles daily Trade XP gain based on banking profits
-//   Now fully compatible with double-precision investments.
+//   Daily Trade XP based on bank profits.
+//   Includes soft-cap XP curve to prevent abuse.
 // ============================================
 
 using System;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Settlements;
 using TaleWorlds.Core;
-using TaleWorlds.Library;
 using BanksOfCalradia.Source.Core;
 using BanksOfCalradia.Source.Systems.Data;
 
@@ -19,14 +18,15 @@ namespace BanksOfCalradia.Source.Systems.Utils
 {
     public static class BankTradeXpUtils
     {
-        private const double TradeXpMultiplier = 0.00029d;
+        // Fator base ajustado
+        private const double TradeXpMultiplier = 0.15d;
 
         public static void ApplyDailyTradeXp(BankStorage storage)
         {
             try
             {
                 var hero = Hero.MainHero;
-                if (hero == null || hero.Clan != Clan.PlayerClan)
+                if (hero == null || hero.HeroDeveloper == null)
                     return;
 
                 if (!storage.SavingsByPlayer.TryGetValue(hero.StringId, out var accounts) ||
@@ -35,6 +35,7 @@ namespace BanksOfCalradia.Source.Systems.Utils
 
                 double totalDailyGain = 0d;
 
+                // Calcula lucros diários
                 foreach (var acc in accounts)
                 {
                     if (acc.Amount <= 0.01)
@@ -48,36 +49,54 @@ namespace BanksOfCalradia.Source.Systems.Utils
 
                     const double fator = 250d;
                     const double prosperidadeBase = 7000d;
-                    double rawSuavizador = prosperity / prosperidadeBase;
-                    double fatorSuavizador = 0.5d + rawSuavizador * 0.5d;
-                    double taxaAnual = prosperity / fator * fatorSuavizador;
+
+                    double raw = prosperity / prosperidadeBase;
+                    double suav = 0.5d + raw * 0.5d;
+                    double taxaAnual = prosperity / fator * suav;
                     double taxaDiaria = taxaAnual / 120d;
 
-                    totalDailyGain += acc.Amount * (taxaDiaria / 100d);
+                    double lucro = acc.Amount * (taxaDiaria / 100d);
+                    totalDailyGain += lucro;
                 }
 
-                if (totalDailyGain <= 1d)
+                if (totalDailyGain <= 0d)
                     return;
 
+                // Cálculo de XP (base)
                 double logComponent = Math.Log10(totalDailyGain / 2d + 10d);
                 double damp = 1d / (1d + (totalDailyGain / 12000d));
-                double xpRaw = Math.Pow(logComponent, 0.85d) * (totalDailyGain * TradeXpMultiplier * 0.8d * damp);
 
-                // Conversão final para float (Trade XP usa float internamente)
+                double xpRaw =
+                    Math.Pow(logComponent, 0.85d) *
+                    (totalDailyGain * TradeXpMultiplier * 0.8d * damp);
+
                 float xpToAdd = (float)Math.Max(0d, xpRaw);
 
-                if (xpToAdd >= 0.1f)
+                if (xpToAdd <= 0f)
+                    return;
+
+                // ============================================================
+                // Aplicação da CURVA DE AMORTECIMENTO (soft cap dinâmico)
+                // ============================================================
+                if (xpToAdd > 10f)
                 {
-                    hero.AddSkillXp(DefaultSkills.Trade, xpToAdd);
+                    // Fórmula sigmoidal leve
+                    double softFactor = Math.Pow(10d / (10d + xpToAdd), 0.25d);
+
+                    xpToAdd = (float)(xpToAdd * softFactor);
                 }
-            }
-            catch (Exception ex)
-            {
-                var msg = L.T("trade_xp_error", "[BanksOfCalradia][Trade XP Error] {ERROR}");
-                msg.SetTextVariable("ERROR", ex.Message);
-                InformationManager.DisplayMessage(
-                    new InformationMessage(msg.ToString(), Color.FromUint(0xFFFF5555))
+
+                // Aplica XP final
+                hero.HeroDeveloper.AddSkillXp(
+                    DefaultSkills.Trade,
+                    xpToAdd,
+                    isAffectedByFocusFactor: true,
+                    shouldNotify: true
                 );
+            }
+            catch
+            {
+                // silencioso em produção
             }
         }
     }

@@ -63,7 +63,7 @@ namespace BanksOfCalradia.Source.UI
                     args.optionLeaveType = GameMenuOption.LeaveType.Leave;
                     return true;
                 },
-                _ => SafeSwitchToMenu("bank_loan_pay")
+                _ => BankSafeUI.Switch("bank_loan_pay")
             );
 
             starter.AddGameMenuOption(
@@ -101,7 +101,7 @@ namespace BanksOfCalradia.Source.UI
                     args.optionLeaveType = GameMenuOption.LeaveType.Leave;
                     return true;
                 },
-                _ => SafeSwitchToMenu("bank_loanmenu"),
+                _ => BankSafeUI.Switch("bank_loanmenu"),
                 isLeave: true
             );
         }
@@ -269,7 +269,7 @@ namespace BanksOfCalradia.Source.UI
                 if (behavior == null || hero == null || settlement == null)
                 {
                     Warn(L.S("loanpay_err_ctx_select", "Error: invalid context when opening selection."));
-                    SafeSwitchToMenu("bank_loan_pay");
+                    BankSafeUI.Switch("bank_loan_pay");
                     return;
                 }
 
@@ -277,7 +277,7 @@ namespace BanksOfCalradia.Source.UI
                 if (storage == null)
                 {
                     Warn(L.S("loanpay_err_storage", "Error: bank storage is not available."));
-                    SafeSwitchToMenu("bank_loan_pay");
+                    BankSafeUI.Switch("bank_loan_pay");
                     return;
                 }
 
@@ -294,7 +294,7 @@ namespace BanksOfCalradia.Source.UI
                 if (validLoans.Count == 0)
                 {
                     Warn(L.S("loanpay_none_for_city", "No active contracts to display."));
-                    SafeSwitchToMenu("bank_loan_pay");
+                    BankSafeUI.Switch("bank_loan_pay");
                     return;
                 }
 
@@ -325,7 +325,7 @@ namespace BanksOfCalradia.Source.UI
                             if (selected == null || selected.Count == 0 || selected[0].Identifier == null)
                             {
                                 Warn(L.S("loanpay_no_selection", "No contract selected."));
-                                SafeSwitchToMenu("bank_loan_pay");
+                                BankSafeUI.Switch("bank_loan_pay");
                                 return;
                             }
 
@@ -335,21 +335,21 @@ namespace BanksOfCalradia.Source.UI
                             if (loan == null || loan.Remaining <= ACTIVE_LOAN_THRESHOLD)
                             {
                                 Warn(L.S("loanpay_not_found", "Contract not found or invalid."));
-                                SafeSwitchToMenu("bank_loan_pay");
+                                BankSafeUI.Switch("bank_loan_pay");
                                 return;
                             }
 
-                            SafeSwitchToMenu("bank_loan_detail");
+                            BankSafeUI.Switch("bank_loan_detail");
                         }
                         catch
                         {
                             Warn(L.S("loanpay_err_open_picker_cb", "Error handling selection."));
-                            SafeSwitchToMenu("bank_loan_pay");
+                            BankSafeUI.Switch("bank_loan_pay");
                         }
                     },
                     _ =>
                     {
-                        SafeSwitchToMenu("bank_loan_pay");
+                        BankSafeUI.Switch("bank_loan_pay");
                     }
                 );
 
@@ -358,7 +358,7 @@ namespace BanksOfCalradia.Source.UI
             catch
             {
                 Warn(L.S("loanpay_err_open_picker", "Error opening contract selection."));
-                SafeSwitchToMenu("bank_loan_pay");
+                BankSafeUI.Switch("bank_loan_pay");
             }
         }
 
@@ -492,7 +492,7 @@ namespace BanksOfCalradia.Source.UI
                 if (contract == null || contract.Remaining <= ACTIVE_LOAN_THRESHOLD)
                 {
                     Warn(L.S("loanpay_not_found", "Contract not found or invalid."));
-                    SafeSwitchToMenu("bank_loan_pay");
+                    BankSafeUI.Switch("bank_loan_pay");
                     return;
                 }
 
@@ -538,7 +538,7 @@ namespace BanksOfCalradia.Source.UI
                             if (storage == null)
                             {
                                 Warn(L.S("loanpay_err_storage", "Error: bank storage is not available."));
-                                SafeSwitchToMenu("bank_loan_pay");
+                                BankSafeUI.Switch("bank_loan_pay");
                                 return;
                             }
 
@@ -547,7 +547,7 @@ namespace BanksOfCalradia.Source.UI
                             if (current == null)
                             {
                                 Warn(L.S("loanpay_not_found", "Contract not found or invalid."));
-                                SafeSwitchToMenu("bank_loan_pay");
+                                BankSafeUI.Switch("bank_loan_pay");
                                 return;
                             }
 
@@ -634,7 +634,7 @@ namespace BanksOfCalradia.Source.UI
                                 );
                             }
 
-                            SafeSwitchToMenu("bank_loan_detail");
+                            BankSafeUI.Switch("bank_loan_detail");
                         }
                         catch
                         {
