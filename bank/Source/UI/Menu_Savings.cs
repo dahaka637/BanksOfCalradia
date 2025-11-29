@@ -189,23 +189,51 @@ namespace BanksOfCalradia.Source.UI
             RegisterWithdrawMenu(starter, behavior);
         }
 
+        // NOTA PESSOAL MINHA, CHAT GPT, SE VOCê ESTIVER LENDO ISSO, E EU REPORTAR QUE O BUG DE CRASH ESTÁ OCORRENDO AO ACESSAR PARA DEPOSITAR OU PARA SACAR, SIGNIFICA QUE O MOTIVO PROVAVELMELMENTE É  ESSA MERDA DE DELAY QUE, EU POR PREGUIÇA, NÃO COLOQUEI NOS SUBMENUS DE SAQUE E DEPOSITO
         // ============================================
-        // Main savings menu
+        // Main savings menu (HARDENED VERSION)
         // ============================================
-        private static void OnMenuInit(MenuCallbackArgs args, BankCampaignBehavior behavior)
+        private static async void OnMenuInit(MenuCallbackArgs args, BankCampaignBehavior behavior)
         {
             try
             {
-                if (!TryGetContext(behavior, out var hero, out var settlement, out var playerId, out var townId))
+                // 🛡️ Delay obrigatório: garante que o menu realmente exista
+                await System.Threading.Tasks.Task.Delay(80);
+
+                // Se o menu ainda não existe, aguarda
+                if (args.MenuContext == null || args.MenuContext.GameMenu == null)
+                    await System.Threading.Tasks.Task.Delay(120);
+
+                // 🚨 Proteção obrigatória — hero e cidade REAL devem existir
+                var settlement = Settlement.CurrentSettlement;
+                var hero = Hero.MainHero;
+
+                if (settlement?.Town == null || hero == null)
                 {
-                    SafeSetMenuText(args, new TextObject(L.S("savings_err_ctx", "[BanksOfCalradia] Context not available.")));
+                    args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
+                    SafeSetMenuText(
+                        args,
+                        L.T("savings_need_town", "You must be inside a town to access savings.")
+                    );
                     return;
                 }
 
-                string townName = settlement?.Name?.ToString() ?? L.S("default_city", "City");
-                float prosperity = settlement?.Town?.Prosperity ?? 0f;
+                // ⚠️ Depois que hero/cidade existem, aplicamos TryGetContext
+                if (!TryGetContext(behavior, out hero, out settlement, out var playerId, out var townId))
+                {
+                    args.MenuTitle = L.T("savings_err_title", "Savings (Error)");
+                    SafeSetMenuText(
+                        args,
+                        L.T("savings_err_ctx", "[BanksOfCalradia] Context not available.")
+                    );
+                    return;
+                }
 
-                // 💹 Curva Calibrada Premium (mantida igual)
+                // A partir daqui é 100% seguro usar settlement.Town e hero
+                string townName = settlement.Name.ToString();
+                float prosperity = settlement.Town.Prosperity;
+
+                // 💹 Curva Calibrada Premium (lógica original)
                 const float prosperidadeBase = 5000f;
                 const float prosperidadeAlta = 6000f;
                 const float prosperidadeMax = 10000f;
@@ -233,7 +261,9 @@ namespace BanksOfCalradia.Source.UI
                 taxaAnual = MathF.Round(taxaAnual, 2);
                 float taxaDiaria = taxaAnual / CICLO_DIAS;
 
+                // taxa de saque
                 float withdrawRate = GetDynamicWithdrawFee(settlement);
+
                 var acct = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
                 if (acct.Amount < 0) acct.Amount = 0;
                 double balance = acct.Amount;
@@ -242,6 +272,7 @@ namespace BanksOfCalradia.Source.UI
                     ? L.S("savings_reinvest_on", "Enabled")
                     : L.S("savings_reinvest_off", "Disabled");
 
+                // Corpo do menu
                 var body = L.T("savings_menu_body",
                     "Savings — Bank of {CITY}\n\n" +
                     "• Annual interest rate: {INTEREST_AA}\n" +
@@ -271,61 +302,142 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
+
         // ============================================
-        // Deposit submenu
+        // Deposit submenu (HARDENED VERSION)
         // ============================================
         private static void RegisterDepositMenu(CampaignGameStarter starter, BankCampaignBehavior behavior)
         {
             starter.AddGameMenu(
                 "bank_savings_deposit",
                 L.S("savings_deposit_loading", "Loading..."),
-                args =>
+                async args =>
                 {
-                    if (!TryGetContext(behavior, out var hero, out var s, out var playerId, out var townId))
+                    // 🛡️ Delay para garantir GameMenuContext
+                    await System.Threading.Tasks.Task.Delay(80);
+
+                    if (args.MenuContext == null || args.MenuContext.GameMenu == null)
+                        await System.Threading.Tasks.Task.Delay(120);
+
+                    // 🚨 Proteção obrigatória: hero e cidade REAL devem existir
+                    var settlement = Settlement.CurrentSettlement;
+                    var hero = Hero.MainHero;
+
+                    if (settlement?.Town == null || hero == null)
                     {
-                        SafeSetMenuText(args, new TextObject(L.S("savings_err_ctx", "Context not available.")));
+                        args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
+                        SafeSetMenuText(args,
+                            L.T("ctx_lost", "Context lost. Please reopen the bank.")
+                        );
                         return;
                     }
 
-                    double savingsBalance = behavior.GetStorage().GetOrCreateSavings(playerId, townId).Amount;
-                    var title = L.T("savings_deposit_title", "Deposit to Savings — Bank balance: {BALANCE}");
-                    title.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(savingsBalance));
+                    // ⚠️ Depois que o ambiente básico está OK, podemos chamar TryGetContext
+                    if (!TryGetContext(behavior, out hero, out settlement, out var playerId, out var townId))
+                    {
+                        args.MenuTitle = L.T("savings_err_title", "Savings (Error)");
+                        SafeSetMenuText(args,
+                            L.T("savings_err_ctx", "[BanksOfCalradia] Context not available.")
+                        );
+                        return;
+                    }
+
+                    // 100% seguro usar storage + savings
+                    var savings = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
+                    if (savings.Amount < 0) savings.Amount = 0;
+
+                    double balance = savings.Amount;
+
+                    // Título
+                    var title = L.T("savings_deposit_title",
+                        "Deposit to Savings — Bank balance: {BALANCE}");
+                    title.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(balance));
                     args.MenuTitle = title;
 
+                    // Corpo
                     var body = L.T("savings_deposit_body",
                         "Select a fixed amount to deposit or use 'Custom amount...'.\n\n" +
                         "Current bank balance: {BALANCE}");
-                    body.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(savingsBalance));
-
+                    body.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(balance));
                     SafeSetMenuText(args, body);
                 }
             );
 
+            // ======================
+            // QUICK DEPOSIT BUTTONS
+            // ======================
+
             foreach (int val in QuickValues)
             {
                 int amount = val;
-                starter.AddGameMenuOption("bank_savings_deposit",
+
+                starter.AddGameMenuOption(
+                    "bank_savings_deposit",
                     $"deposit_{amount}",
                     L.S("savings_deposit_fixed", "Deposit") + $" {amount:N0}",
-                    a => { a.optionLeaveType = GameMenuOption.LeaveType.Continue; return true; },
-                    _ => TryDepositFixed(behavior, amount), false);
+                    a =>
+                    {
+                        // Proteção de click precoce
+                        a.optionLeaveType = GameMenuOption.LeaveType.Continue;
+                        return Settlement.CurrentSettlement?.Town != null;
+                    },
+                    _ => TryDepositFixed(behavior, amount),
+                    false
+                );
             }
 
-            starter.AddGameMenuOption("bank_savings_deposit", "deposit_all",
+            // ======================
+            // DEPOSIT ALL
+            // ======================
+
+            starter.AddGameMenuOption(
+                "bank_savings_deposit",
+                "deposit_all",
                 L.S("savings_deposit_all", "Deposit all"),
-                a => { a.optionLeaveType = GameMenuOption.LeaveType.Continue; return true; },
-                _ => TryDepositAll(behavior), false);
+                a =>
+                {
+                    a.optionLeaveType = GameMenuOption.LeaveType.Continue;
+                    return Settlement.CurrentSettlement?.Town != null;
+                },
+                _ => TryDepositAll(behavior),
+                false
+            );
 
-            starter.AddGameMenuOption("bank_savings_deposit", "deposit_custom",
+            // ======================
+            // CUSTOM DEPOSIT
+            // ======================
+
+            starter.AddGameMenuOption(
+                "bank_savings_deposit",
+                "deposit_custom",
                 L.S("savings_deposit_custom", "Custom amount..."),
-                a => { a.optionLeaveType = GameMenuOption.LeaveType.Continue; return true; },
-                _ => PromptCustomDeposit(behavior), false);
+                a =>
+                {
+                    a.optionLeaveType = GameMenuOption.LeaveType.Continue;
+                    return Settlement.CurrentSettlement?.Town != null;
+                },
+                _ => PromptCustomDeposit(behavior),
+                false
+            );
 
-            starter.AddGameMenuOption("bank_savings_deposit", "deposit_back",
+            // ======================
+            // RETURN
+            // ======================
+
+            starter.AddGameMenuOption(
+                "bank_savings_deposit",
+                "deposit_back",
                 L.S("savings_deposit_back", "Back to Savings"),
-                a => { a.optionLeaveType = GameMenuOption.LeaveType.Leave; return true; },
-                _ => BankSafeUI.Switch("bank_savings"), true);
+                a =>
+                {
+                    a.optionLeaveType = GameMenuOption.LeaveType.Leave;
+                    return true;
+                },
+                _ => BankSafeUI.Switch("bank_savings"),
+                true
+            );
         }
+
 
         private static void TryDepositAll(BankCampaignBehavior behavior)
         {

@@ -187,27 +187,36 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
-        // -------------------------------------------------------------
-        // Lista de empréstimos da cidade atual
-        // -------------------------------------------------------------
-        private static void OnMenuInit_List(MenuCallbackArgs args)
+        private static async void OnMenuInit_List(MenuCallbackArgs args)
         {
             try
             {
+                // Delay crítico — garante GameMenuContext e Gauntlet
+                await System.Threading.Tasks.Task.Delay(80);
+
+                if (args.MenuContext == null || args.MenuContext.GameMenu == null)
+                    await System.Threading.Tasks.Task.Delay(120);
+
+                // 🔹 Reset de segurança — evita contratos “fantasma” ao trocar de cidade
+                _selectedLoanId = null;
+
                 var behavior = GetBehavior();
                 var hero = Hero.MainHero;
                 var settlement = Settlement.CurrentSettlement;
 
-                if (behavior == null || hero == null || settlement == null)
+                // Proteção absoluta: hero + cidade devem existir
+                if (behavior == null || hero == null || settlement?.Town == null)
                 {
-                    Warn(L.S("loanpay_err_ctx", "Error: invalid context for loan list."));
+                    args.MenuTitle = L.T("loanpay_err_title", "Loans (Unavailable)");
+                    SetMenuText(args, L.T("loanpay_err_ctx", "Context lost. Please reopen the bank."));
                     return;
                 }
 
                 var storage = behavior.GetStorage();
                 if (storage == null)
                 {
-                    Warn(L.S("loanpay_err_storage", "Error: bank storage is not available."));
+                    args.MenuTitle = L.T("loanpay_err_title", "Loans (Unavailable)");
+                    SetMenuText(args, L.T("loanpay_err_storage", "Storage unavailable."));
                     return;
                 }
 
@@ -217,7 +226,7 @@ namespace BanksOfCalradia.Source.UI
 
                 var loans = storage.GetLoans(playerId) ?? new List<BankLoanData>();
 
-                // Filtra só desta cidade e realmente ativos
+                // Filtra só desta cidade e ativos
                 List<BankLoanData> cityLoans = loans.FindAll(l =>
                     l != null &&
                     l.TownId == townId &&
@@ -227,33 +236,33 @@ namespace BanksOfCalradia.Source.UI
                 args.MenuTitle = L.T("loanpay_list_title", "Bank of {CITY} — Active Loans");
                 args.MenuTitle.SetTextVariable("CITY", townName);
 
-                float totalDebt = 0f;
-                for (int i = 0; i < cityLoans.Count; i++)
-                    totalDebt += MathF.Max(0f, cityLoans[i].Remaining);
-
                 if (cityLoans.Count == 0)
                 {
-                    var bodyEmpty = L.T("loanpay_list_body_empty",
+                    var body = L.T("loanpay_list_body_empty",
                         "Bank of {CITY}\n\nYou have no pending loans at this bank.\n\n{SEP}");
-                    bodyEmpty.SetTextVariable("CITY", townName);
-                    bodyEmpty.SetTextVariable("SEP", SEP);
-                    SetMenuText(args, bodyEmpty);
-                }
-                else
-                {
-                    var body = L.T("loanpay_list_body",
-                        "Bank of {CITY}\n\nActive debt at this bank: {DEBT}\n\nUse 'Select contract' to choose which one to manage.\n\n{SEP}");
                     body.SetTextVariable("CITY", townName);
-                    body.SetTextVariable("DEBT", BankUtils.FmtDenars(totalDebt));
                     body.SetTextVariable("SEP", SEP);
                     SetMenuText(args, body);
+                    return;
                 }
+
+                float totalDebt = 0f;
+                foreach (var loan in cityLoans)
+                    totalDebt += MathF.Max(0f, loan.Remaining);
+
+                var body2 = L.T("loanpay_list_body",
+                    "Bank of {CITY}\n\nActive debt at this bank: {DEBT}\n\nUse 'Select contract' to choose a loan.\n\n{SEP}");
+                body2.SetTextVariable("CITY", townName);
+                body2.SetTextVariable("DEBT", BankUtils.FmtDenars(totalDebt));
+                body2.SetTextVariable("SEP", SEP);
+                SetMenuText(args, body2);
             }
-            catch
+            catch (Exception e)
             {
-                Warn(L.S("loanpay_err_list", "Could not open the loan list."));
+                Warn("[BanksOfCalradia] Error opening loan list: " + e.Message);
             }
         }
+
 
         // -------------------------------------------------------------
         // Picker de contratos
@@ -365,34 +374,41 @@ namespace BanksOfCalradia.Source.UI
         // -------------------------------------------------------------
         // Detalhes do contrato
         // -------------------------------------------------------------
-        private static void OnMenuInit_Detail(MenuCallbackArgs args)
+        private static async void OnMenuInit_Detail(MenuCallbackArgs args)
         {
             try
             {
-                SetMenuText(args, new TextObject(L.S("loading_generic", "Loading...")));
+                await System.Threading.Tasks.Task.Delay(80);
+
+                if (args.MenuContext == null || args.MenuContext.GameMenu == null)
+                    await System.Threading.Tasks.Task.Delay(120);
+
+                var behavior = GetBehavior();
+                var hero = Hero.MainHero;
+                var settlement = Settlement.CurrentSettlement;
+
+                if (behavior == null || hero == null || settlement?.Town == null)
+                {
+                    SetMenuText(args, L.T("loanpay_err_ctx", "Context lost. Please reopen the bank."));
+                    return;
+                }
 
                 var loan = GetSelectedLoan();
                 if (loan == null)
                 {
-                    SetMenuText(args, new TextObject(L.S("loanpay_detail_invalid", "No contract selected or contract is invalid.")));
+                    SetMenuText(args, L.T("loanpay_detail_invalid", "No contract selected."));
                     return;
                 }
 
-                string townName = Settlement.CurrentSettlement?.Name?.ToString() ?? L.S("default_city", "City");
+                string townName = settlement.Name?.ToString() ?? L.S("default_city", "City");
 
                 bool isActive = loan.Remaining > ACTIVE_LOAN_THRESHOLD;
 
-                string statusLine;
-                if (!isActive)
-                {
-                    statusLine = L.S("loanpay_status_paid", "Status: Paid off");
-                }
-                else
-                {
-                    var s = L.T("loanpay_status_remaining", "Remaining: {AMOUNT}");
-                    s.SetTextVariable("AMOUNT", BankUtils.FmtDenars(loan.Remaining));
-                    statusLine = s.ToString();
-                }
+                string statusLine = isActive
+                    ? L.T("loanpay_status_remaining", "Remaining: {AMOUNT}")
+                        .SetTextVariable("AMOUNT", BankUtils.FmtDenars(loan.Remaining))
+                        .ToString()
+                    : L.S("loanpay_status_paid", "Status: Paid off");
 
                 var body = L.T("loanpay_detail_body",
                     "Loan Contract — Bank of {CITY}\n\n" +
@@ -403,6 +419,7 @@ namespace BanksOfCalradia.Source.UI
                     "• Term (days): {DAYS}\n" +
                     "{SEP}\n" +
                     "{ACTION_HINT}");
+
                 body.SetTextVariable("CITY", townName);
                 body.SetTextVariable("ORIGINAL", BankUtils.FmtDenars(loan.OriginalAmount));
                 body.SetTextVariable("STATUS", statusLine);
@@ -410,19 +427,22 @@ namespace BanksOfCalradia.Source.UI
                 body.SetTextVariable("LATEFEE", BankUtils.FmtPct(loan.LateFeeRate / 100f));
                 body.SetTextVariable("DAYS", loan.DurationDays);
                 body.SetTextVariable("SEP", SEP);
-                body.SetTextVariable("ACTION_HINT",
+                body.SetTextVariable(
+                    "ACTION_HINT",
                     isActive
                         ? L.S("loanpay_action_hint_pay", "Select 'Pay this loan' to make a partial payment.")
-                        : L.S("loanpay_action_hint_done", "This loan is fully paid."));
+                        : L.S("loanpay_action_hint_done", "This loan is fully paid.")
+                );
 
                 args.MenuTitle = L.T("loanpay_detail_title", "Loan Details");
                 SetMenuText(args, body);
             }
-            catch
+            catch (Exception e)
             {
-                Warn(L.S("loanpay_err_detail", "Error showing loan details."));
+                Warn("[BanksOfCalradia] Error showing loan details: " + e.Message);
             }
         }
+
 
         // -------------------------------------------------------------
         // Cálculo de abatimento (dinâmico, igual ao Python)
@@ -626,6 +646,10 @@ namespace BanksOfCalradia.Source.UI
                             if (current.Remaining <= 0f)
                             {
                                 current.Remaining = 0f;
+
+                                // 🔹 Limpa seleção para evitar “contrato fantasma”
+                                _selectedLoanId = null;
+
                                 InformationManager.DisplayMessage(
                                     new InformationMessage(
                                         L.S("loanpay_now_paid", "Loan fully paid."),
@@ -633,6 +657,7 @@ namespace BanksOfCalradia.Source.UI
                                     )
                                 );
                             }
+
 
                             BankSafeUI.Switch("bank_loan_detail");
                         }
