@@ -1,28 +1,26 @@
 ﻿// ============================================
 // BanksOfCalradia - SubModule.cs
 // Author: Dahaka
-// Version: 2.2.0 (Production Release + Finance Fallback)
+// Version: 2.2.2 (Production + Full Model Restore)
 // Description:
-//   Initialization of all core systems for
-//   the Banks of Calradia mod.
-//   Handles behaviors, models, menus and
-//   localization-safe notifications.
+//   Core initialization for Banks of Calradia.
+//
+//   • Loads Harmony patches (+ SafeUI fallback layer)
+//   • Registers behaviors, models, menus
+//   • Displays boot messages (localized)
 // ============================================
 
 using System;
+using HarmonyLib;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
 
-// Internal systems
 using BanksOfCalradia.Source.Core;
 using BanksOfCalradia.Source.Systems;
 using BanksOfCalradia.Source.Systems.Processing;
 using BanksOfCalradia.Source.UI;
-
-// Test proxy
-using BanksOfCalradia.Source.Systems.Testing;
 
 namespace BanksOfCalradia.Source
 {
@@ -30,56 +28,81 @@ namespace BanksOfCalradia.Source
     {
         private bool _bootMessageShown;
 
+        // ============================================================
+        // (0) Carrega Harmony + camada de segurança SafeUI
+        // ============================================================
+        protected override void OnSubModuleLoad()
+        {
+            base.OnSubModuleLoad();
+
+            try
+            {
+                var harmony = new Harmony("BanksOfCalradia.Patches");
+                harmony.PatchAll();
+
+                // Proteção extra
+                BankSafeUIHarmonyBootstrap.InstallExtraPatches(harmony);
+            }
+            catch
+            {
+                // silencioso
+            }
+        }
+
+        // ============================================================
+        // (1) Inicialização de Campanha
+        // ============================================================
         protected override void OnGameStart(Game game, IGameStarter starter)
         {
             base.OnGameStart(game, starter);
 
-            if (game?.GameType is not Campaign || starter is not CampaignGameStarter campaignStarter)
+            if (game?.GameType is not Campaign ||
+                starter is not CampaignGameStarter campaignStarter)
                 return;
 
             try
             {
-                // ============================================================
-                // 🔧 (1) Proxy do modelo de comida
-                // ============================================================
-                campaignStarter.AddModel(new BankFoodModelProxy());
-
-                // ============================================================
-                // (2) Core persistence and behaviors
-                // ============================================================
+                // --------------------------------------------------------
+                // (1) Behavior central + persistência
+                // --------------------------------------------------------
                 var bankBehavior = new BankCampaignBehavior();
                 campaignStarter.AddBehavior(bankBehavior);
 
-                // ============================================================
-                // (3) Core models and processors
-                // ============================================================
-                campaignStarter.AddModel(new FinanceProcessor());
+                // --------------------------------------------------------
+                // (2) Processadores do Banco
+                // --------------------------------------------------------
                 campaignStarter.AddBehavior(new BankLoanProcessor());
+
+                // ========================================================
+                // (3) MODELOS QUE PRECISAM EXISTIR PARA FUNCIONAR
+                // ========================================================
+
+                // 🔥 RESTAURADO: Sem isso não existe ProsperityGain
                 campaignStarter.AddModel(new BankProsperityModel());
 
-                // 🔸 Novo: fallback autodefensivo do sistema financeiro
-                campaignStarter.AddBehavior(new BankFinanceFallbackBehavior());
+                // 🔥 RESTAURADO: Sem isso FoodAid nunca aparece no ExplainedNumber
+                campaignStarter.AddModel(new BankFoodModelProxy());
 
-                // ============================================================
-                // (4) Bank menus
-                // ============================================================
+                // ⚠️ NÃO ADICIONAR FinanceProcessor -> substituído pelo fallback
+                // ⚠️ NÃO ADICIONAR FoodAid antigo (esse abaixo já faz tudo)
+                // ========================================================
+
+                // --------------------------------------------------------
+                // (4) Menus
+                // --------------------------------------------------------
                 BankMenu_Savings.RegisterMenu(campaignStarter, bankBehavior);
                 BankMenu_Loan.RegisterMenu(campaignStarter, bankBehavior);
                 BankMenu_LoanPay.RegisterMenu(campaignStarter, bankBehavior);
-
-                // ============================================================
-                // (5) Log de inicialização (localização segura)
-                // ============================================================
             }
-            catch (Exception e)
+            catch
             {
-                InformationManager.DisplayMessage(new InformationMessage(
-                    "[BanksOfCalradia][ERROR] Initialization failed: " + e.Message,
-                    Color.FromUint(0xFFFF6666)
-                ));
+                // silencioso
             }
         }
 
+        // ============================================================
+        // (2) Mensagem de Boot
+        // ============================================================
         protected override void OnBeforeInitialModuleScreenSetAsRoot()
         {
             base.OnBeforeInitialModuleScreenSetAsRoot();

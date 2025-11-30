@@ -19,7 +19,7 @@ using TaleWorlds.Localization;
 
 using BanksOfCalradia.Source.Core;
 
-namespace BanksOfCalradia.Source.Systems.Testing
+namespace BanksOfCalradia.Source.Systems.Processing
 {
     public class BankFoodModelProxy : DefaultSettlementFoodModel
     {
