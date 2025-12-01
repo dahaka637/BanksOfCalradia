@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" type="string">
+  <tags>
+    <tag language="FR" />
+  </tags>
+  <strings>
+    <string id="bank_mod_boot_ok" text="[BanksOfCalradia] Module chargé avec succès." />
+    <string id="bank_mod_init_ok" text="[BanksOfCalradia] Systèmes principaux initialisés avec succès." />
+    <string id="bank_data_load_fail" text="[BanksOfCalradia] Échec du chargement des données sauvegardées. Création d’une nouvelle instance." />
+    <string id="bank_visit_option" text="Visiter la Banque" />
+    <string id="bank_open_savings" text="Accéder au Compte d’Épargne" />
+    <string id="bank_open_loans" text="Accéder aux Services de Crédit" />
+    <string id="bank_return_city" text="Retourner à la Ville" />
+    <string id="bank_default_city" text="Ville" />
+    <string id="bank_visit_label" text="Visiter la Banque de {CITY}" />
+    <string id="bank_menu_text" text="Banque de {CITY}&#10;&#10;Bienvenue à la banque de la ville.&#10;&#10;Choisissez une option ci-dessous pour gérer vos ressources :&#10;&#10;- Accéder au Compte d’Épargne&#10;- Services de Crédit&#10;- Retourner à la Ville" />
+    <string id="bank_trade_xp_gain" text="+{AMOUNT} XP de Commerce gagnés grâce aux profits bancaires." />
+    <string id="bank_trade_xp_error" text="[BanksOfCalradia][Erreur XP Commerce] {ERROR}" />
+    <string id="bank_finance_interest" text="Intérêts bancaires" />
+    <string id="bank_finance_interest_city" text="Intérêts bancaires ({CITY})" />
+    <string id="bank_loan_payment_city" text="Paiement du prêt ({CITY})" />
+    <string id="bank_loan_processor_error" text="[BanksOfCalradia][Crédits] Erreur lors du traitement quotidien : {ERROR}" />
+    <string id="bank_loan_installment_paid" text="Échéance payée : -{AMOUNT}" />
+    <string id="bank_loan_payment_info" text="Prêt de la banque de {CITY} : dette restante {AMOUNT} | Échéances restantes : {INSTALLMENTS}" />
+    <string id="bank_loan_partial_payment" text="Paiement partiel : {PAID} | Restant avant pénalité : {REMAINING}" />
+    <string id="bank_loan_penalty_applied" text="Pénalité de retard de {RATE} appliquée ({FEE}). Nouveau montant restant : {AMOUNT}" />
+    <string id="bank_loan_penalty_frozen" text="Pénalité quotidienne gelée après avoir dépassé 10× la valeur contractuelle avec intérêts." />
+    <string id="bank_loan_fully_paid" text="Prêt entièrement remboursé. Contrat supprimé." />
+    <string id="bank_loan_process_summary" text="[Prêt] Traité : {TOTAL} | Complet : {FULL} | Partiel : {PARTIAL} | Pénalités : {PENALTIES} | Payé aujourd’hui : {PAIDTODAY}" />
+    <string id="bank_loan_city_unknown" text="Ville inconnue" />
+    <string id="bank_loan_menu_loading" text="Chargement des informations de crédit..." />
+    <string id="bank_loan_menu_title" text="Banque de {CITY} — Crédit" />
+    <string id="bank_loan_menu_body" text="Banque de {CITY} — Crédit&#10;&#10;• Intérêt estimé (12x) : {INTEREST}&#10;• Pénalité quotidienne de retard : {LATEFEE}&#10;• Crédit disponible : {CREDIT}&#10;• Dette active : {DEBT}&#10;&#10;{SEP}&#10;&#10;Sélectionnez une option ci-dessous." />
+    <string id="bank_loan_menu_option_request" text="Demander un prêt" />
+    <string id="bank_loan_menu_option_pay" text="Payer les prêts existants" />
+    <string id="bank_loan_menu_option_back" text="Retourner à la Banque" />
+    <string id="bank_loan_req_loading" text="Chargement de la simulation de prêt..." />
+    <string id="bank_loan_req_title" text="Demande de Prêt — {CITY}" />
+    <string id="bank_loan_req_body" text="Demande de Prêt — Banque de {CITY}&#10;&#10;Paramètres du contrat :&#10;• Montant demandé : {REQ}&#10;• Nombre d’échéances : {INST}&#10;&#10;{SEP}&#10;&#10;Simulation actuelle :&#10;• Crédit disponible : {CREDIT}&#10;• Taux d’intérêt total : {INTEREST}&#10;• Total avec intérêts : {TOTAL}&#10;• Valeur de l’échéance : {INSTALLMENT}&#10;• Pénalité quotidienne de retard : {LATEFEE}{WARN}" />
+    <string id="bank_loan_req_warn_credit" text="Attention : le montant demandé ({REQ}) dépasse votre crédit disponible ({CREDIT})." />
+    <string id="bank_loan_req_edit_amount" text="Modifier le montant demandé" />
+    <string id="bank_loan_req_edit_installments" text="Modifier le nombre d’échéances (1–360)" />
+    <string id="bank_loan_req_confirm" text="Confirmer le prêt" />
+    <string id="bank_loan_req_back" text="Retour" />
+    <string id="bank_loan_popup_amount_title" text="Montant demandé" />
+    <string id="bank_loan_popup_amount_desc" text="Entrez le montant souhaité :" />
+    <string id="bank_loan_popup_amount_invalid" text="Montant invalide." />
+    <string id="bank_loan_popup_inst_title" text="Nombre d’échéances" />
+    <string id="bank_loan_popup_inst_desc" text="Entrez le nombre d’échéances (1–360) :" />
+    <string id="bank_loan_popup_inst_invalid" text="Nombre invalide." />
+    <string id="bank_popup_confirm" text="Confirmer" />
+    <string id="bank_popup_cancel" text="Annuler" />
+    <string id="bank_loan_confirm_invalid_player_or_city" text="Erreur : joueur ou ville invalide." />
+    <string id="bank_loan_confirm_need_amount" text="Définissez d’abord le montant du prêt." />
+    <string id="bank_loan_confirm_need_installments" text="Définissez le nombre d’échéances avant de confirmer." />
+    <string id="bank_loan_confirm_exceeds_credit" text="Le montant demandé dépasse votre crédit disponible." />
+    <string id="bank_loan_confirm_ok" text="Prêt de {AMOUNT} créé avec succès.&#10;Taux d’intérêt total : {INTEREST}." />
+    <string id="bank_loan_confirm_error" text="Erreur lors de l’enregistrement du prêt : {ERROR}" />
+    <string id="bank_loan_menu_error" text="Erreur lors du chargement du menu de crédit : {ERROR}" />
+    <string id="bank_loan_req_error" text="Erreur lors de la mise à jour de la simulation : {ERROR}" />
+    <string id="bank_loanpay_list_loading" text="Chargement des prêts actifs..." />
+    <string id="bank_loanpay_list_title" text="Banque de {CITY} — Prêts Actifs" />
+    <string id="bank_loanpay_list_body" text="Banque de {CITY}&#10;&#10;Dette active auprès de cette banque : {DEBT}&#10;&#10;Utilisez « Sélectionner un contrat » pour choisir celui à gérer.&#10;&#10;{SEP}" />
+    <string id="bank_loanpay_list_body_empty" text="Banque de {CITY}&#10;&#10;Vous n’avez aucun prêt en cours auprès de cette banque.&#10;&#10;{SEP}" />
+    <string id="bank_loanpay_list_pick" text="Sélectionner un contrat" />
+    <string id="bank_loanpay_list_back" text="Retourner à la Banque" />
+    <string id="bank_loanpay_picker_title" text="Sélectionner un Contrat" />
+    <string id="bank_loanpay_picker_desc" text="Choisissez un contrat pour voir les détails et effectuer un paiement." />
+    <string id="bank_loanpay_picker_item" text="Contrat {INDEX} — Restant : {AMOUNT}" />
+    <string id="bank_loanpay_no_selection" text="Aucun contrat sélectionné." />
+    <string id="bank_loanpay_none_for_city" text="Aucun contrat actif à afficher." />
+    <string id="bank_loanpay_err_ctx_select" text="Erreur : contexte invalide lors de l’ouverture de la sélection." />
+    <string id="bank_loanpay_err_open_picker" text="Erreur lors de l’ouverture de la sélection de contrat : {ERROR}" />
+    <string id="bank_loanpay_detail_loading" text="Chargement des détails du contrat..." />
+
+    <string id="bank_loanpay_detail_title" text="Détails du prêt" />
+    <string id="bank_loading_generic" text="Chargement..." />
+    <string id="bank_loanpay_detail_invalid" text="Aucun contrat sélectionné ou contrat invalide." />
+    <string id="bank_loanpay_status_paid" text="Statut : Payé" />
+    <string id="bank_loanpay_status_remaining" text="Restant : {AMOUNT}" />
+    <string id="bank_loanpay_detail_body" text="Contrat de prêt — Banque de {CITY}&#10;&#10;• Montant initial : {ORIGINAL}&#10;• {STATUS}&#10;• Intérêt fixe : {INTEREST}&#10;• Pénalité quotidienne de retard : {LATEFEE}&#10;• Durée (jours) : {DAYS}&#10;{SEP}&#10;{ACTION_HINT}" />
+    <string id="bank_loanpay_action_hint_pay" text="Sélectionnez « Payer ce prêt » pour effectuer un paiement partiel." />
+    <string id="bank_loanpay_action_hint_done" text="Ce prêt est entièrement payé." />
+    <string id="bank_loanpay_detail_back" text="Retour à la liste des prêts" />
+    <string id="bank_loanpay_detail_pay" text="Payer ce prêt" />
+    <string id="bank_loanpay_popup_title" text="Paiement du prêt" />
+    <string id="bank_loanpay_popup_desc" text="Entrez le montant à payer (solde : {BAL}, restant : {REM}) :" />
+    <string id="bank_loanpay_invalid_value" text="Montant invalide." />
+    <string id="bank_loanpay_value_gt_zero" text="Le montant doit être supérieur à zéro." />
+    <string id="bank_loanpay_not_enough_gold" text="Vous n’avez pas assez d’or." />
+    <string id="bank_loanpay_value_too_low" text="Montant du paiement trop faible." />
+    <string id="bank_loanpay_insufficient_after_round" text="Fonds insuffisants après arrondi." />
+    <string id="bank_loanpay_payment_ok" text="Paiement de {AMOUNT} effectué avec succès." />
+    <string id="bank_loanpay_now_paid" text="Prêt entièrement remboursé avec succès." />
+    <string id="bank_loanpay_err_ctx" text="Erreur : contexte invalide (comportement/joueur/ville)." />
+    <string id="bank_loanpay_not_found" text="Contrat introuvable ou invalide." />
+    <string id="bank_loanpay_already_paid" text="Ce contrat est déjà payé." />
+    <string id="bank_loanpay_err_list" text="Erreur lors de la création de la liste : {ERROR}" />
+    <string id="bank_loanpay_err_detail" text="Erreur lors de l’affichage des détails : {ERROR}" />
+    <string id="bank_loanpay_err_payment" text="Erreur lors du traitement du paiement : {ERROR}" />
+
+    <string id="bank_savings_menu_loading" text="Chargement des données d’épargne..." />
+    <string id="bank_savings_menu_body" text="Épargne — Banque de {CITY}&#10;&#10;• Taux d’intérêt annuel : {INTEREST_AA}&#10;• Taux d’intérêt quotidien : {INTEREST_AD}&#10;• Prospérité locale : {PROSPERITY}&#10;• Commission de retrait : {WITHDRAW_FEE}&#10;• Solde actuel : {BALANCE}&#10;• Réinvestissement automatique : {REINVEST}" />
+
+    <string id="bank_savings_menu_deposit" text="Déposer de l’argent" />
+    <string id="bank_savings_menu_withdraw" text="Retirer de l’argent" />
+    <string id="bank_savings_menu_back" text="Retour à la Banque" />
+    <string id="bank_savings_menu_error" text="[BanksOfCalradia] Erreur lors du chargement du menu d’épargne : {ERROR}" />
+
+    <string id="bank_savings_deposit_loading" text="Chargement..." />
+    <string id="bank_savings_deposit_title" text="Dépôt sur l’épargne — Solde bancaire : {BALANCE}" />
+    <string id="bank_savings_deposit_body" text="Sélectionnez un montant fixe à déposer ou utilisez « Montant personnalisé... ».&#10;&#10;Solde bancaire actuel : {BALANCE}" />
+    <string id="bank_savings_deposit_fixed" text="Déposer" />
+    <string id="bank_savings_deposit_all" text="Tout déposer" />
+    <string id="bank_savings_deposit_custom" text="Montant personnalisé..." />
+    <string id="bank_savings_deposit_back" text="Retour à l’Épargne" />
+
+    <string id="bank_savings_deposit_popup_title" text="Dépôt personnalisé" />
+    <string id="bank_savings_deposit_popup_desc" text="Entrez le montant à déposer :" />
+    <string id="bank_savings_invalid_value" text="Montant invalide." />
+    <string id="bank_savings_no_gold" text="Vous n’avez pas assez d’or." />
+    <string id="bank_savings_deposit_done" text="Dépôt de {AMOUNT} effectué. Nouveau solde : {BALANCE}." />
+
+    <string id="bank_savings_withdraw_loading" text="Chargement..." />
+    <string id="bank_savings_withdraw_title" text="Retrait de l’Épargne — Solde bancaire : {BALANCE}" />
+    <string id="bank_savings_withdraw_body" text="Sélectionnez un montant fixe à retirer ou utilisez « Montant personnalisé... ».&#10;&#10;Commission de retrait actuelle pour cette banque : {FEE}&#10;Solde bancaire actuel : {BALANCE}" />
+    <string id="bank_savings_withdraw_fixed" text="Retirer" />
+    <string id="bank_savings_withdraw_all" text="Tout retirer" />
+    <string id="bank_savings_withdraw_custom" text="Montant personnalisé..." />
+    <string id="bank_savings_withdraw_back" text="Retour à l’Épargne" />
+    <string id="bank_savings_no_balance" text="Solde d’épargne insuffisant." />
+
+    <string id="bank_savings_withdraw_popup_title" text="Retrait personnalisé" />
+    <string id="bank_savings_withdraw_popup_desc" text="Entrez le montant à retirer :" />
+
+    <string id="bank_savings_withdraw_done_all" text="Retrait de {GROSS} effectué (Commission : {FEE} → {FEEVAL}). Reçu : {NET}. Solde : {BAL}." />
+    <string id="bank_savings_withdraw_done_fixed" text="Retrait de {GROSS} effectué (Commission : {FEE} → {FEEVAL}). Reçu : {NET}. Solde : {BAL}." />
+    <string id="bank_savings_withdraw_done_custom" text="Retrait de {GROSS} effectué (Commission : {FEE} → {FEEVAL}). Reçu : {NET}. Solde : {BAL}." />
+
+    <string id="bank_prosperity_model_error" text="[BanksOfCalradia] Erreur dans le modèle de prospérité : {ERROR}" />
+    <string id="bank_prosperity_bank_label" text="Influence bancaire" />
+
+    <string id="bank_storage_debug_header" text="[BanksOfCalradia] Résumé du stockage : Joueurs : {PLAYERS}, Comptes : {SAVINGS}, Prêts : {LOANS}" />
+    <string id="bank_storage_debug_savings_line" text="  • {PLAYER} → {TOWN} = {AMOUNT}" />
+
+    <string id="bank_ledger_new_entry" text="[BanksOfCalradia][Grand Livre] Nouvelle entrée : {SOURCE} | {DESC} | {AMOUNT}" />
+    <string id="bank_ledger_apply_fail_nohero" text="[BanksOfCalradia][Grand Livre] Impossible d’appliquer la transaction : héros indisponible." />
+    <string id="bank_ledger_apply_ok" text="[BanksOfCalradia][Grand Livre] Transaction appliquée : {AMOUNT} pour {DESC}" />
+    <string id="bank_ledger_apply_error" text="[BanksOfCalradia][Grand Livre] Erreur lors de l’application de la transaction : {ERROR}" />
+    <string id="bank_ledger_no_behavior" text="[BanksOfCalradia][Grand Livre] Comportement bancaire introuvable." />
+    <string id="bank_ledger_interest_desc" text="Intérêts quotidiens ({TOWN})" />
+    <string id="bank_ledger_interest_label" text="Intérêts Bancaires" />
+    <string id="bank_ledger_interest_injected" text="[BanksOfCalradia][Grand Livre] Intérêts bancaires ajoutés : {AMOUNT}" />
+    <string id="bank_ledger_inject_error" text="[BanksOfCalradia][Grand Livre] Erreur lors de l’ajout des intérêts : {ERROR}" />
+    <string id="bank_ledger_removed" text="[BanksOfCalradia][Grand Livre] Entrée supprimée {ID}" />
+
+    <string id="bank_loan_installment_paid_icon" text="Échéance payée :" />
+    <string id="bank_loanpay_payment_ok_bonus" text="Vous avez payé {PAID} et reçu un avantage de paiement anticipé de {BONUS} !" />
+    <string id="bank_loanpay_bonus_log" text="Coût effectif : {COST} ({PERCENT}% économisé). Nouvelle dette : {NEWDEBT}" />
+
+    <string id="bank_loan_confirm_popup_title" text="Confirmer le contrat de prêt" />
+    <string id="bank_loan_confirm_popup_text" text="Aperçu du contrat de prêt — Banque de {CITY}&#10;&#10;• Montant demandé : {AMOUNT}&#10;• Échéances : {INSTALLMENTS}x&#10;• Taux d’intérêt : {INTEREST}&#10;• Pénalité quotidienne de retard : {LATEFEE}&#10;• Total à rembourser : {TOTAL}&#10;• Valeur de l’échéance : {INSTALLMENT}&#10;&#10;Confirmez-vous ce contrat ?" />
+
+    <string id="bank_loan_grace_period" text="Le prêt est en période de grâce. {DAYS} jour(s) restant(s) avant la première charge." />
+    <string id="bank_loan_grace_over" text="La période de grâce est terminée. Le remboursement commencera demain." />
+
+    <string id="bank_food_aid_bank_label" text="Aide Alimentaire Bancaire" />
+
+	  
+    <string id="bank_finance_auto_reinvest_msg" text="Intérêt de" />
+    <string id="bank_finance_auto_reinvest_to" text="ajouté à l’épargne dans" />
+
+    <string id="bank_savings_toggle_reinvest" text="Activer/Désactiver le réinvestissement automatique" />
+    <string id="bank_savings_reinvest_on" text="Activé" />
+    <string id="bank_savings_reinvest_off" text="Désactivé" />
+    <string id="bank_savings_reinvest_enabled" text="Réinvestissement automatique ACTIVÉ — les intérêts seront désormais ajoutés directement à votre épargne." />
+    <string id="bank_savings_reinvest_disabled" text="Réinvestissement automatique DÉSACTIVÉ — les intérêts iront maintenant dans votre or personnel." />
+
+    <string id="bank_finance_auto_reinvest_summary_1" text="Réinvestissement automatique terminé :" />
+    <string id="bank_finance_auto_reinvest_summary_2" text="Total de" />
+    <string id="bank_finance_auto_reinvest_summary_3" text="ajouté à travers {COUNT} comptes bancaires." />
+
+    <string id="bank_bank_bootwait" text="Chargement des systèmes bancaires...&#10;&#10;Veuillez patienter pendant que le jeu initialise les modules internes.&#10;&#10;{SEC}" />
+    <string id="bank_bank_loading" text="Banque (Chargement)" />
+    <string id="bank_bank_unavailable" text="Banque (Indisponible)" />
+    <string id="bank_bank_need_town" text="Ce menu est uniquement disponible dans une ville." />
+
+
+  </strings>
+</base>

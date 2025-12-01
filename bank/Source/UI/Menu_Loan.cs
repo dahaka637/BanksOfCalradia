@@ -1,4 +1,20 @@
-﻿using System;
+﻿// ============================================
+// BanksOfCalradia - BankMenu_Loan.cs
+// Author: Dahaka
+// Version: 2.6.1 (Ultra Safe Context Hardening)
+// Description:
+//   Loans interface with real contracts + persistence (BankStorage)
+//   - Clean UI (credit summary + simulation)
+//   - Localized texts via helper L
+//   - Strict town context gate (no "town" fallback ids)
+//   - UI delay hardening (Gauntlet/MenuContext stabilization)
+//   - Guarded callbacks (Inquiry/TextInquiry/actions)
+// ============================================
+
+using System;
+using System.Globalization;
+using System.Reflection;
+using System.Threading.Tasks;
 using BanksOfCalradia.Source.Core;
 using BanksOfCalradia.Source.Systems;
 using TaleWorlds.CampaignSystem;
@@ -10,13 +26,6 @@ using TaleWorlds.Localization;
 
 namespace BanksOfCalradia.Source.UI
 {
-    // ============================================
-    // BankMenu_Loan - Sistema de Empréstimos
-    // - Interface limpa e funcional
-    // - Contratos reais e persistência (BankStorage)
-    // - Localização nativa via helper L
-    // - Proteções contra null/crash
-    // ============================================
     public static class BankMenu_Loan
     {
         // ------------------------------------------------------------
@@ -33,11 +42,158 @@ namespace BanksOfCalradia.Source.UI
         // Separador usado no corpo do menu
         private const string SEP = "____________________";
 
+        private static bool _registered;
+
+        // ------------------------------------------------------------
+        // Context Hardening
+        // ------------------------------------------------------------
+        private static bool IsInValidTown()
+        {
+            try
+            {
+                return Campaign.Current != null
+                       && Hero.MainHero != null
+                       && Settlement.CurrentSettlement?.Town != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryGetStrictTownContext(
+            BankCampaignBehavior behavior,
+            out Hero hero,
+            out Settlement settlement,
+            out Town town,
+            out BankStorage storage,
+            out string playerId,
+            out string townId)
+        {
+            hero = null;
+            settlement = null;
+            town = null;
+            storage = null;
+            playerId = null;
+            townId = null;
+
+            try
+            {
+                hero = Hero.MainHero;
+                if (hero == null)
+                    return false;
+
+                settlement = Settlement.CurrentSettlement;
+                town = settlement?.Town;
+                if (town == null)
+                    return false;
+
+                if (behavior == null)
+                    return false;
+
+                storage = behavior.GetStorage();
+                if (storage == null)
+                    return false;
+
+                playerId = hero.StringId;
+                townId = settlement.StringId;
+
+                if (string.IsNullOrEmpty(playerId) || string.IsNullOrEmpty(townId))
+                    return false;
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryGetTownContextNoStorage(
+            out Hero hero,
+            out Settlement settlement,
+            out Town town,
+            out string playerId,
+            out string townId)
+        {
+            hero = null;
+            settlement = null;
+            town = null;
+            playerId = null;
+            townId = null;
+
+            try
+            {
+                hero = Hero.MainHero;
+                if (hero == null)
+                    return false;
+
+                settlement = Settlement.CurrentSettlement;
+                town = settlement?.Town;
+                if (town == null)
+                    return false;
+
+                playerId = hero.StringId;
+                townId = settlement.StringId;
+
+                if (string.IsNullOrEmpty(playerId) || string.IsNullOrEmpty(townId))
+                    return false;
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static async Task WaitUiAsync(MenuCallbackArgs args)
+        {
+            try
+            {
+                await Task.Delay(80);
+
+                if (args?.MenuContext == null || args.MenuContext.GameMenu == null)
+                    await Task.Delay(120);
+            }
+            catch
+            {
+                // silencioso
+            }
+        }
+
+        private static void SafeSetMenuText(MenuCallbackArgs args, TextObject text)
+        {
+            try
+            {
+                var menu = args?.MenuContext?.GameMenu;
+                if (menu == null)
+                    return;
+
+                var field = typeof(GameMenu).GetField("_defaultText", BindingFlags.NonPublic | BindingFlags.Instance);
+                field?.SetValue(menu, text);
+            }
+            catch
+            {
+                // silencioso
+            }
+        }
+
+        private static void Warn(string msg)
+        {
+            try
+            {
+                InformationManager.DisplayMessage(new InformationMessage(msg, Color.FromUint(0xFFFF6666)));
+            }
+            catch
+            {
+                // silencioso
+            }
+        }
+
         // ------------------------------------------------------------
         // Registro de menus
         // ------------------------------------------------------------
-        private static bool _registered;
-
         public static void RegisterMenu(CampaignGameStarter starter, BankCampaignBehavior behavior)
         {
             if (starter == null)
@@ -62,10 +218,12 @@ namespace BanksOfCalradia.Source.UI
                 args =>
                 {
                     args.optionLeaveType = GameMenuOption.LeaveType.Submenu;
-                    return true;
+                    return IsInValidTown();
                 },
-                _ => BankSafeUI.Switch("bank_loan_request")
-
+                _ =>
+                {
+                    try { BankSafeUI.Switch("bank_loan_request"); } catch { }
+                }
             );
 
             // Opção: pagar empréstimos (menu é criado no BankMenu_LoanPay)
@@ -76,10 +234,12 @@ namespace BanksOfCalradia.Source.UI
                 args =>
                 {
                     args.optionLeaveType = GameMenuOption.LeaveType.Submenu;
-                    return true;
+                    return IsInValidTown();
                 },
-                _ => BankSafeUI.Switch("bank_loan_pay")
-
+                _ =>
+                {
+                    try { BankSafeUI.Switch("bank_loan_pay"); } catch { }
+                }
             );
 
             // Opção: voltar ao banco
@@ -92,8 +252,10 @@ namespace BanksOfCalradia.Source.UI
                     args.optionLeaveType = GameMenuOption.LeaveType.Leave;
                     return true;
                 },
-                _ => BankSafeUI.Switch("bank_menu")
-
+                _ =>
+                {
+                    try { BankSafeUI.Switch("bank_menu"); } catch { }
+                }
             );
 
             // Submenu de simulação/contratação
@@ -111,9 +273,12 @@ namespace BanksOfCalradia.Source.UI
                 args =>
                 {
                     args.optionLeaveType = GameMenuOption.LeaveType.Continue;
-                    return true;
+                    return IsInValidTown();
                 },
-                _ => PromptEditAmount()
+                _ =>
+                {
+                    try { PromptEditAmount(); } catch { }
+                }
             );
 
             // Editar parcelas
@@ -124,9 +289,12 @@ namespace BanksOfCalradia.Source.UI
                 args =>
                 {
                     args.optionLeaveType = GameMenuOption.LeaveType.Continue;
-                    return true;
+                    return IsInValidTown();
                 },
-                _ => PromptEditInstallments()
+                _ =>
+                {
+                    try { PromptEditInstallments(); } catch { }
+                }
             );
 
             // Confirmar empréstimo
@@ -137,9 +305,12 @@ namespace BanksOfCalradia.Source.UI
                 args =>
                 {
                     args.optionLeaveType = GameMenuOption.LeaveType.Continue;
-                    return true;
+                    return IsInValidTown();
                 },
-                _ => ConfirmLoan(behavior)
+                _ =>
+                {
+                    try { ConfirmLoan(behavior); } catch { }
+                }
             );
 
             // Cancelar
@@ -154,10 +325,16 @@ namespace BanksOfCalradia.Source.UI
                 },
                 _ =>
                 {
-                    ClearSimulation();
-                    BankSafeUI.Switch("bank_loanmenu");
+                    try
+                    {
+                        ClearSimulation();
+                        BankSafeUI.Switch("bank_loanmenu");
+                    }
+                    catch
+                    {
+                        // silencioso
+                    }
                 }
-
             );
         }
 
@@ -168,43 +345,35 @@ namespace BanksOfCalradia.Source.UI
         {
             try
             {
-                // 🛡️ Delay crítico: garante que Gauntlet e MenuContext existem
-                await System.Threading.Tasks.Task.Delay(80);
+                await WaitUiAsync(args);
 
-                if (args.MenuContext == null || args.MenuContext.GameMenu == null)
-                    await System.Threading.Tasks.Task.Delay(120);
-
-                // 🚨 Proteção absoluta: proíbe execução fora de cidade real
-                var settlement = Settlement.CurrentSettlement;
-                var hero = Hero.MainHero;
-
-                if (settlement?.Town == null)
+                if (!TryGetTownContextNoStorage(out var hero, out var settlement, out var town, out var playerId, out var townId))
                 {
                     args.MenuTitle = L.T("loan_menu_unavailable", "Bank Loans (Unavailable)");
-                    BankSafeUI.SetText(
-                        args,
-                        L.T("loan_menu_need_town", "You must be inside a town to access loan services.")
-                    );
+                    SafeSetMenuText(args, L.T("loan_menu_need_town", "You must be inside a town to access loan services."));
                     return;
                 }
 
-                // Agora é 100% seguro usar Town, Name e Hero.Clan
-                string townName = settlement.Name.ToString();
-                float prosperity = settlement.Town.Prosperity;
+                string townName = settlement.Name?.ToString() ?? L.S("default_city", "City");
+                float prosperity = town.Prosperity;
                 float renown = hero?.Clan?.Renown ?? 0f;
 
-                // Simulação base com 12 parcelas
                 var sim = CalcLoanForecastParametric(prosperity, renown, 12);
 
-                // Dívidas ativas reduzem crédito
-                string playerId = hero?.StringId ?? "player";
-                float totalDebt = behavior != null
-                    ? GetPlayerTotalDebt(behavior, playerId)
-                    : 0f;
+                float totalDebt = 0f;
+                if (behavior?.GetStorage() != null)
+                    totalDebt = GetPlayerTotalDebt(behavior, playerId);
+                else
+                {
+                    args.MenuTitle = L.T("loan_menu_unavailable", "Bank Loans (Unavailable)");
+                    SafeSetMenuText(args, L.T("loan_menu_loading",
+                        "The bank system is still initializing.\n\nPlease reopen this menu shortly."));
+                    return;
+                }
+
 
                 float availableCredit = MathF.Max(0f, sim.maxLoan - totalDebt);
 
-                // Corpo do menu
                 var body = L.T("loan_menu_body",
                     "Bank of {CITY} — Credit\n\n" +
                     "• Estimated interest (12x): {INTEREST}\n" +
@@ -220,16 +389,11 @@ namespace BanksOfCalradia.Source.UI
                 body.SetTextVariable("DEBT", BankUtils.FmtDenars(totalDebt));
                 body.SetTextVariable("SEP", SEP);
 
-                // Título
-                args.MenuTitle = L.T("loan_menu_title", "Bank of {CITY} — Credit");
-                args.MenuTitle.SetTextVariable("CITY", townName);
+                var title = L.T("loan_menu_title", "Bank of {CITY} — Credit");
+                title.SetTextVariable("CITY", townName);
 
-                // Define texto interno do menu de forma segura
-                var field = typeof(GameMenu).GetField(
-                    "_defaultText",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
-                );
-                field?.SetValue(args.MenuContext.GameMenu, body);
+                args.MenuTitle = title;
+                SafeSetMenuText(args, body);
             }
             catch (Exception e)
             {
@@ -237,47 +401,32 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
-
         // ------------------------------------------------------------
         // Submenu de simulação
+        // ------------------------------------------------------------
         private static async void OnMenuInit_Request(MenuCallbackArgs args, BankCampaignBehavior behavior)
         {
             try
             {
-                // 🛡️ Delay crítico: garante GameMenuContext + UI
-                await System.Threading.Tasks.Task.Delay(80);
+                await WaitUiAsync(args);
 
-                if (args.MenuContext == null || args.MenuContext.GameMenu == null)
-                    await System.Threading.Tasks.Task.Delay(120);
-
-                // 🚨 Proteção absoluta: cidade REAL obrigatória
-                var settlement = Settlement.CurrentSettlement;
-                var hero = Hero.MainHero;
-
-                if (settlement?.Town == null || hero == null)
+                if (!TryGetTownContextNoStorage(out var hero, out var settlement, out var town, out var playerId, out var townId))
                 {
                     args.MenuTitle = L.T("loan_req_unavailable", "Loan Request (Unavailable)");
-                    BankSafeUI.SetText(
-                        args,
-                        L.T("loan_req_need_town", "You must be inside a town to simulate loan terms.")
-                    );
+                    SafeSetMenuText(args, L.T("loan_req_need_town", "You must be inside a town to simulate loan terms."));
                     return;
                 }
 
-                // Agora é 100% seguro usar Town.Name, Prosperity e Hero.Clan
-                string townName = settlement.Name.ToString();
-                string playerId = hero.StringId;
+                string townName = settlement.Name?.ToString() ?? L.S("default_city", "City");
+                float prosperity = town.Prosperity;
+                float renown = hero?.Clan?.Renown ?? 0f;
 
-                float prosperity = settlement.Town.Prosperity;
-                float renown = hero.Clan?.Renown ?? 0f;
-
-                // Simulação
                 int parcelas = Math.Max(_sim.Installments, 1);
                 var sim = CalcLoanForecastParametric(prosperity, renown, parcelas);
 
-                float totalDebt = behavior != null
-                    ? GetPlayerTotalDebt(behavior, playerId)
-                    : 0f;
+                float totalDebt = 0f;
+                if (behavior != null)
+                    totalDebt = GetPlayerTotalDebt(behavior, playerId);
 
                 float availableCredit = MathF.Max(0f, sim.maxLoan - totalDebt);
 
@@ -286,9 +435,7 @@ namespace BanksOfCalradia.Source.UI
                 float baseAmount = MathF.Max(1f, (float)_sim.RequestedAmount);
                 float jurosPct = sim.totalInterestPct;
                 float valorTotalReal = hasInput ? baseAmount * (1f + jurosPct / 100f) : 0f;
-                float valorParcelaReal = hasInput
-                    ? valorTotalReal / MathF.Max(1f, (float)_sim.Installments)
-                    : 0f;
+                float valorParcelaReal = hasInput ? (valorTotalReal / MathF.Max(1f, (float)_sim.Installments)) : 0f;
 
                 string req = _sim.RequestedAmount > 0 ? BankUtils.FmtDenars(_sim.RequestedAmount) : "—";
                 string parc = _sim.Installments > 0 ? $"{_sim.Installments}x" : "—";
@@ -296,14 +443,14 @@ namespace BanksOfCalradia.Source.UI
                 string total = hasInput ? BankUtils.FmtDenars(valorTotalReal) : "—";
                 string parcVal = hasInput ? BankUtils.FmtDenars(valorParcelaReal) : "—";
 
-                string warn = "";
-                if (_sim.RequestedAmount > availableCredit)
+                string warnExtra = "";
+                if (_sim.RequestedAmount > 0 && _sim.RequestedAmount > availableCredit)
                 {
                     var warnObj = L.T("loan_req_warn_credit",
                         "Attention: requested amount ({REQ}) exceeds your available credit ({CREDIT}).");
                     warnObj.SetTextVariable("REQ", BankUtils.FmtDenars(_sim.RequestedAmount));
                     warnObj.SetTextVariable("CREDIT", BankUtils.FmtDenars(availableCredit));
-                    warn = "\n " + warnObj.ToString();
+                    warnExtra = "\n\n" + warnObj.ToString();
                 }
 
                 var body = L.T("loan_req_body",
@@ -327,25 +474,19 @@ namespace BanksOfCalradia.Source.UI
                 body.SetTextVariable("TOTAL", total);
                 body.SetTextVariable("INSTALLMENT", parcVal);
                 body.SetTextVariable("LATEFEE", BankUtils.FmtPct(sim.lateFeePct / 100f));
-                body.SetTextVariable("WARN", warn);
+                body.SetTextVariable("WARN", warnExtra);
 
-                // Título seguro
-                args.MenuTitle = L.T("loan_req_title", "Request Loan — {CITY}");
-                args.MenuTitle.SetTextVariable("CITY", townName);
+                var title = L.T("loan_req_title", "Request Loan — {CITY}");
+                title.SetTextVariable("CITY", townName);
 
-                // Escreve o texto no menu de forma 100% segura
-                var field = typeof(GameMenu).GetField(
-                    "_defaultText",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
-                );
-                field?.SetValue(args.MenuContext.GameMenu, body);
+                args.MenuTitle = title;
+                SafeSetMenuText(args, body);
             }
             catch (Exception e)
             {
                 Warn(L.S("loan_req_error", "Error updating loan simulation: ") + e.Message);
             }
         }
-
 
         // ------------------------------------------------------------
         // Confirmação real do empréstimo
@@ -354,26 +495,11 @@ namespace BanksOfCalradia.Source.UI
         {
             try
             {
-                var settlement = Settlement.CurrentSettlement;
-                var hero = Hero.MainHero;
-
-                if (hero == null || settlement == null)
+                if (!TryGetStrictTownContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
                 {
                     Warn(L.S("loan_confirm_invalid_player_or_city", "Error: invalid player or town."));
                     return;
                 }
-
-                if (behavior == null)
-                {
-                    Warn(L.S("loan_confirm_behavior_missing", "Error: bank behavior not found."));
-                    return;
-                }
-
-                string playerId = hero.StringId;
-                string townId = settlement.StringId;
-
-                float prosperity = settlement.Town?.Prosperity ?? 0f;
-                float renown = hero.Clan?.Renown ?? 0f;
 
                 if (_sim.RequestedAmount <= 0)
                 {
@@ -387,8 +513,11 @@ namespace BanksOfCalradia.Source.UI
                     return;
                 }
 
-                // Segurança: limitar a 360 parcelas
                 int parcelas = ClampInt(_sim.Installments, 1, 360);
+
+                float prosperity = town.Prosperity;
+                float renown = hero.Clan?.Renown ?? 0f;
+
                 var sim = CalcLoanForecastParametric(prosperity, renown, parcelas);
 
                 float totalDebt = GetPlayerTotalDebt(behavior, playerId);
@@ -400,11 +529,15 @@ namespace BanksOfCalradia.Source.UI
                     return;
                 }
 
-                // 🔹 Montar o resumo do contrato para exibição
+                // Capturar estável para o popup/ação
+                int reqAmount = _sim.RequestedAmount;
                 float jurosPct = sim.totalInterestPct;
-                float multa = sim.lateFeePct;
-                float valorTotal = _sim.RequestedAmount * (1f + jurosPct / 100f);
+                float multaLate = sim.lateFeePct;
+
+                float valorTotal = reqAmount * (1f + jurosPct / 100f);
                 float valorParcela = valorTotal / parcelas;
+
+                string townName = settlement.Name?.ToString() ?? "City";
 
                 var textObj = L.T("loan_confirm_popup_text",
                     "Loan Contract Preview — Bank of {CITY}\n\n" +
@@ -415,87 +548,46 @@ namespace BanksOfCalradia.Source.UI
                     "• Total to repay: {TOTAL}\n" +
                     "• Installment value: {INSTALLMENT}\n\n" +
                     "Do you confirm this contract?");
-                textObj.SetTextVariable("CITY", settlement.Name?.ToString() ?? "City");
-                textObj.SetTextVariable("AMOUNT", BankUtils.FmtDenarsFull(_sim.RequestedAmount));
+                textObj.SetTextVariable("CITY", townName);
+                textObj.SetTextVariable("AMOUNT", BankUtils.FmtDenarsFull(reqAmount));
                 textObj.SetTextVariable("INSTALLMENTS", parcelas);
                 textObj.SetTextVariable("INTEREST", BankUtils.FmtPct(jurosPct / 100f));
-                textObj.SetTextVariable("LATEFEE", BankUtils.FmtPct(multa / 100f));
+                textObj.SetTextVariable("LATEFEE", BankUtils.FmtPct(multaLate / 100f));
                 textObj.SetTextVariable("TOTAL", BankUtils.FmtDenarsFull(valorTotal));
                 textObj.SetTextVariable("INSTALLMENT", BankUtils.FmtDenarsFull(valorParcela));
 
-                // 🔹 Popup de confirmação
-                InformationManager.ShowInquiry(
-                    new InquiryData(
-                        L.S("loan_confirm_popup_title", "Confirm Loan Contract"),
-                        textObj.ToString(),
-                        true,
-                        true,
-                        L.S("popup_confirm", "Confirm"),
-                        L.S("popup_cancel", "Cancel"),
-                        async () =>
+                // Usa BankSafeUI.Inquiry para reduzir race-condition de UI
+                BankSafeUI.Inquiry(new InquiryData(
+                    L.S("loan_confirm_popup_title", "Confirm Loan Contract"),
+                    textObj.ToString(),
+                    true,
+                    true,
+                    L.S("popup_confirm", "Confirm"),
+                    L.S("popup_cancel", "Cancel"),
+                    () =>
+                    {
+                        try
                         {
-                            try
-                            {
-                                // COPIA DADOS PARA VARIÁVEIS TEMPORÁRIAS
-                                int amount = _sim.RequestedAmount;
-                                int insts = parcelas;
-                                float juros = sim.totalInterestPct;
-                                float multaLate = sim.lateFeePct;
-
-                                // 🔥 LIMPA A SIMULAÇÃO
-                                ClearSimulation();
-
-                                // 🔄 Força recarregar a UI zerada
-                                BankSafeUI.Switch("bank_loan_request");
-
-                                // Espera 80ms para garantir UI limpa
-                                await System.Threading.Tasks.Task.Delay(80);
-
-                                // Agora executa o fluxo normal
-                                var storage = behavior.GetStorage();
-                                if (storage == null)
-                                {
-                                    Warn(L.S("loan_confirm_storage_missing", "Error: bank storage not available."));
-                                    return;
-                                }
-
-                                storage.CreateLoan(
-                                    playerId,
-                                    townId,
-                                    amount,
-                                    juros,
-                                    multaLate,
-                                    insts
-                                );
-
-                                hero.ChangeHeroGold(amount);
-
-                                var okMsg = L.T("loan_confirm_ok",
-                                    "Loan of {AMOUNT} successfully created.\nTotal interest rate: {INTEREST}.");
-                                okMsg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(amount));
-                                okMsg.SetTextVariable("INTEREST", BankUtils.FmtPct(juros / 100f));
-
-                                InformationManager.DisplayMessage(new InformationMessage(
-                                    okMsg.ToString(),
-                                    Color.FromUint(BankUtils.UiGold)
-                                ));
-
-                                BankSafeUI.Switch("bank_loanmenu");
-                            }
-                            catch (Exception ex)
-                            {
-                                Warn(L.S("loan_confirm_error", "Error registering the loan: ") + ex.Message);
-                            }
-                        },
-                        () =>
+                            StartCreateLoan(behavior, playerId, townId, reqAmount, parcelas, jurosPct, multaLate);
+                        }
+                        catch
+                        {
+                            // silencioso
+                        }
+                    },
+                    () =>
+                    {
+                        try
                         {
                             ClearSimulation();
                             BankSafeUI.Switch("bank_loan_request");
                         }
-                    ),
-                    true
-                );
-
+                        catch
+                        {
+                            // silencioso
+                        }
+                    }
+                ));
             }
             catch (Exception e)
             {
@@ -503,29 +595,100 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
+        private static async void StartCreateLoan(
+            BankCampaignBehavior behavior,
+            string playerId,
+            string townId,
+            int amount,
+            int installments,
+            float jurosPct,
+            float multaLate)
+        {
+            try
+            {
+                // Captura hero atual (pode mudar se o jogador sair do menu)
+                var hero = Hero.MainHero;
+                if (hero == null)
+                {
+                    Warn(L.S("loan_confirm_invalid_player_or_city", "Error: invalid player or town."));
+                    return;
+                }
 
+                // Limpa (antes) para evitar reentradas estranhas
+                ClearSimulation();
+
+                // Recarrega UI "limpa" e dá um pequeno tempo para estabilizar
+                BankSafeUI.Switch("bank_loan_request");
+                await Task.Delay(80);
+
+                var storage = behavior?.GetStorage();
+                if (storage == null)
+                {
+                    Warn(L.S("loan_confirm_storage_missing", "Error: bank storage not available."));
+                    return;
+                }
+
+                storage.CreateLoan(
+                    playerId,
+                    townId,
+                    amount,
+                    jurosPct,
+                    multaLate,
+                    installments
+                );
+
+                // Concede o dinheiro do empréstimo
+                hero.ChangeHeroGold(amount);
+
+                var okMsg = L.T("loan_confirm_ok",
+                    "Loan of {AMOUNT} successfully created.\nTotal interest rate: {INTEREST}.");
+                okMsg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(amount));
+                okMsg.SetTextVariable("INTEREST", BankUtils.FmtPct(jurosPct / 100f));
+
+                InformationManager.DisplayMessage(new InformationMessage(
+                    okMsg.ToString(),
+                    Color.FromUint(BankUtils.UiGold)
+                ));
+
+                BankSafeUI.Switch("bank_loanmenu");
+            }
+            catch (Exception ex)
+            {
+                Warn(L.S("loan_confirm_error", "Error registering the loan: ") + ex.Message);
+            }
+        }
 
         // ------------------------------------------------------------
         // Soma total de dívidas do jogador
         // ------------------------------------------------------------
         private static float GetPlayerTotalDebt(BankCampaignBehavior behavior, string playerId)
         {
-            if (behavior == null)
+            try
+            {
+                if (behavior == null)
+                    return 0f;
+
+                var storage = behavior.GetStorage();
+                if (storage == null)
+                    return 0f;
+
+                var loans = storage.GetLoans(playerId ?? "player");
+                if (loans == null)
+                    return 0f;
+
+                if (loans == null || loans.Count == 0)
+                    return 0f;
+
+                float total = 0f;
+                for (int i = 0; i < loans.Count; i++)
+                    total += loans[i].Remaining;
+
+                return total;
+            }
+            catch
+            {
                 return 0f;
-
-            var storage = behavior.GetStorage();
-            if (storage == null)
-                return 0f;
-
-            var loans = storage.GetLoans(playerId ?? "player");
-            if (loans == null || loans.Count == 0)
-                return 0f;
-
-            float total = 0f;
-            for (int i = 0; i < loans.Count; i++)
-                total += loans[i].Remaining;
-
-            return total;
+            }
         }
 
         // ------------------------------------------------------------
@@ -533,60 +696,84 @@ namespace BanksOfCalradia.Source.UI
         // ------------------------------------------------------------
         private static void PromptEditAmount()
         {
-            InformationManager.ShowTextInquiry(new TextInquiryData(
-                L.S("loan_popup_amount_title", "Requested amount"),
-                L.S("loan_popup_amount_desc", "Enter the desired amount (denars):"),
-                isAffirmativeOptionShown: true,
-                isNegativeOptionShown: true,
-                affirmativeText: L.S("popup_confirm", "Confirm"),
-                negativeText: L.S("popup_cancel", "Cancel"),
-                affirmativeAction: input =>
-                {
-                    if (!TryParsePositiveInt(input, out int val))
+            try
+            {
+                InformationManager.ShowTextInquiry(new TextInquiryData(
+                    L.S("loan_popup_amount_title", "Requested amount"),
+                    L.S("loan_popup_amount_desc", "Enter the desired amount (denars):"),
+                    isAffirmativeOptionShown: true,
+                    isNegativeOptionShown: true,
+                    affirmativeText: L.S("popup_confirm", "Confirm"),
+                    negativeText: L.S("popup_cancel", "Cancel"),
+                    affirmativeAction: input =>
                     {
-                        Warn(L.S("loan_popup_amount_invalid", "Invalid amount."));
-                        return;
-                    }
+                        try
+                        {
+                            if (!TryParsePositiveIntFlexible(input, out int val))
+                            {
+                                Warn(L.S("loan_popup_amount_invalid", "Invalid amount."));
+                                return;
+                            }
 
-                    // Segurança: não deixar valor negativo ou bizarro
-                    _sim.RequestedAmount = Math.Max(0, val);
-                    BankSafeUI.Switch("bank_loan_request");
-
-                },
-                negativeAction: null
-            ));
+                            _sim.RequestedAmount = Math.Max(0, val);
+                            BankSafeUI.Switch("bank_loan_request");
+                        }
+                        catch
+                        {
+                            // silencioso
+                        }
+                    },
+                    negativeAction: null
+                ));
+            }
+            catch
+            {
+                // silencioso
+            }
         }
 
         private static void PromptEditInstallments()
         {
-            InformationManager.ShowTextInquiry(new TextInquiryData(
-                L.S("loan_popup_inst_title", "Installments"),
-                L.S("loan_popup_inst_desc", "Enter the number of installments (1–360):"),
-                isAffirmativeOptionShown: true,
-                isNegativeOptionShown: true,
-                affirmativeText: L.S("popup_confirm", "Confirm"),
-                negativeText: L.S("popup_cancel", "Cancel"),
-                affirmativeAction: input =>
-                {
-                    if (!int.TryParse((input ?? "").Trim(), out int n))
+            try
+            {
+                InformationManager.ShowTextInquiry(new TextInquiryData(
+                    L.S("loan_popup_inst_title", "Installments"),
+                    L.S("loan_popup_inst_desc", "Enter the number of installments (1–360):"),
+                    isAffirmativeOptionShown: true,
+                    isNegativeOptionShown: true,
+                    affirmativeText: L.S("popup_confirm", "Confirm"),
+                    negativeText: L.S("popup_cancel", "Cancel"),
+                    affirmativeAction: input =>
                     {
-                        Warn(L.S("loan_popup_inst_invalid", "Invalid number."));
-                        return;
-                    }
+                        try
+                        {
+                            if (!TryParsePositiveIntFlexible(input, out int n))
+                            {
+                                Warn(L.S("loan_popup_inst_invalid", "Invalid number."));
+                                return;
+                            }
 
-                    _sim.Installments = ClampInt(n, 1, 360);
-                    BankSafeUI.Switch("bank_loan_request");
-                },
-                negativeAction: null
-            ));
+                            _sim.Installments = ClampInt(n, 1, 360);
+                            BankSafeUI.Switch("bank_loan_request");
+                        }
+                        catch
+                        {
+                            // silencioso
+                        }
+                    },
+                    negativeAction: null
+                ));
+            }
+            catch
+            {
+                // silencioso
+            }
         }
+
         // ------------------------------------------------------------
-        // Novo algoritmo de empréstimo (versão sem curva de suavização)
-        // ------------------------------------------------------------
-        // ==========================================================
-        // 🏦 BanksOfCalradia - Loan Forecast (v1.6.1 Curva Suave Calibrada)
+        // Loan Forecast (v1.6.1 Curva Suave Calibrada)
         // Fix: usa Math.Exp (double) com cast para float no sigmoide
-        // ==========================================================
+        // ------------------------------------------------------------
         private static (float maxLoan, float totalInterestPct, float totalWithInterest, float installmentValue, float lateFeePct)
             CalcLoanForecastParametric(float prosperity, float renown, int installments)
         {
@@ -633,12 +820,10 @@ namespace BanksOfCalradia.Source.UI
             float jurosFinal = JUROS_BASE * risco * fatorParcelas;
             jurosFinal = MathF.Clamp(jurosFinal, JUROS_MIN, JUROS_MAX);
 
-            // Desconto suave por renome (sigmoide)
-            // Usa Math.Exp(double) por compatibilidade e faz cast para float
             float x = MathF.Max(1f, renown);
             float expTerm = (float)System.Math.Exp((x - 600f) / 220f);
-            float s = 1f / (1f + expTerm);               // decresce com renome
-            float fatorDescontoRenome = 0.60f + 0.60f * s; // [0.60, 1.20]
+            float s = 1f / (1f + expTerm);
+            float fatorDescontoRenome = 0.60f + 0.60f * s;
             fatorDescontoRenome = MathF.Min(1.20f, MathF.Max(0.60f, fatorDescontoRenome));
             jurosFinal *= fatorDescontoRenome;
 
@@ -658,20 +843,87 @@ namespace BanksOfCalradia.Source.UI
             return (valorMaxR, jurosFinal, valorTotalR, valorParcelaR, multa);
         }
 
-
-
-
-
         // ------------------------------------------------------------
         // Utilidades
         // ------------------------------------------------------------
-        private static bool TryParsePositiveInt(string input, out int value)
+        private static bool TryParsePositiveIntFlexible(string input, out int value)
         {
             value = 0;
-            return !string.IsNullOrWhiteSpace(input)
-                   && int.TryParse(input.Trim(), out int parsed)
-                   && parsed > 0
-                   && (value = parsed) > 0;
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(input))
+                    return false;
+
+                string s = input.Trim();
+                s = s.Replace(" ", "");
+
+                // 1) Tenta direto no CurrentCulture
+                if (double.TryParse(s, NumberStyles.Number, CultureInfo.CurrentCulture, out double v1) && v1 > 0d)
+                {
+                    if (v1 % 1d != 0d)
+                        return false;
+
+                    if (v1 > int.MaxValue)
+                    {
+                        value = int.MaxValue;
+                        return true;
+                    }
+
+                    value = (int)v1;
+                    return true;
+                }
+
+                // 2) Invariant
+                if (double.TryParse(s, NumberStyles.Number, CultureInfo.InvariantCulture, out double v2) && v2 > 0d)
+                {
+                    if (v2 % 1d != 0d)
+                        return false;
+
+                    if (v2 > int.MaxValue)
+                    {
+                        value = int.MaxValue;
+                        return true;
+                    }
+
+                    value = (int)v2;
+                    return true;
+                }
+
+                // 3) Normalização separadores mistos
+                int lastDot = s.LastIndexOf('.');
+                int lastComma = s.LastIndexOf(',');
+
+                if (lastDot >= 0 && lastComma >= 0)
+                {
+                    char dec = (lastDot > lastComma) ? '.' : ',';
+                    char thou = (dec == '.') ? ',' : '.';
+
+                    string normalized = s.Replace(thou.ToString(), "");
+                    normalized = normalized.Replace(dec, '.');
+
+                    if (double.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out double v3) && v3 > 0d)
+                    {
+                        if (v3 % 1d != 0d)
+                            return false;
+
+                        if (v3 > int.MaxValue)
+                        {
+                            value = int.MaxValue;
+                            return true;
+                        }
+
+                        value = (int)v3;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static int ClampInt(int v, int min, int max)
@@ -685,14 +937,6 @@ namespace BanksOfCalradia.Source.UI
         {
             _sim.RequestedAmount = 0;
             _sim.Installments = 0;
-        }
-
-        private static void Warn(string msg)
-        {
-            InformationManager.DisplayMessage(new InformationMessage(
-                msg,
-                Color.FromUint(0xFFFF6666)
-            ));
         }
 
         private static void SafeSwitchToMenu(string menuId)

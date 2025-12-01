@@ -1,53 +1,82 @@
 ﻿// ============================================
 // BanksOfCalradia - BankCampaignBehavior.cs
 // Author: Dahaka
-// Version: 2.9.1 (Modular Refactor + Sync Support)
+// Version: 3.0.0 (Ultra Safe Behavior + Health Gate + Warmup Rebuild)
 // Description:
-//   Core campaign behavior that initializes menus,
-//   manages save/load, and delegates logic to utils.
+//   Core campaign behavior responsible for:
+//   • Registering UI menus safely
+//   • Loading/saving BankStorage (JSON)
+//   • Ultra-safe warmup + storage health gate (prevents random UI crashes)
+//   • Daily delegates (TradeXP & SuccessionChecker) guarded
 //
-//   • Initializes UI menus
-//   • Loads/saves BankStorage
-//   • Safe warmup (delayed) to avoid first-frame Gauntlet issues
-//   • Calls Utils: TradeXP & SuccessionChecker
+//  Key safety features:
+//   - Warmup boot (delayed) to avoid first-frame Gauntlet/menu pipeline issues
+//   - Storage health validation + rebuild attempt (serialize→deserialize roundtrip)
+//   - If health is broken, bank menu shows a safe error message and HIDES Savings/Loans buttons
+//   - Strict town gating for menu navigation (no Settlement access during bootstrap)
 // ============================================
 
+using BanksOfCalradia.Source.Core;
+using BanksOfCalradia.Source.Systems.Utils;
+using BanksOfCalradia.Source.UI;
+using Newtonsoft.Json;
 using System;
 using System.Threading.Tasks;
-using BanksOfCalradia.Source.Core;
-using BanksOfCalradia.Source.UI;
-using BanksOfCalradia.Source.Systems.Utils;
-using Newtonsoft.Json;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.GameMenus;
 using TaleWorlds.CampaignSystem.Settlements;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
+using TaleWorlds.Localization;
+using TaleWorlds.ScreenSystem;
 
 namespace BanksOfCalradia.Source.Systems
 {
     public class BankCampaignBehavior : CampaignBehaviorBase
     {
+        // ------------------------------------------------------------
+        // Storage + concurrency guard
+        // ------------------------------------------------------------
+        private readonly object _storageLock = new object();
+
         private BankStorage _bankStorage = new BankStorage();
 
         // Evita re-registro de menus em edge-cases
         private bool _menusRegistered;
 
-        // "Warmup" para evitar crash no primeiro acesso (Gauntlet/menus ainda subindo)
+        // Warmup para mitigar race-condition (Gauntlet / menu pipeline)
         private volatile bool _uiWarmupReady;
 
-        // ============================================
+        // Health gate: se storage estiver inconsistente/bugado, desliga botões críticos
+        private volatile BankHealthState _healthState = BankHealthState.WarmingUp;
+        private volatile string _healthReason = "Warming up...";
+        private volatile int _warmupAttemptCount;
+
+        // Tempo real em que o comportamento foi carregado (usado para o gate de 15s)
+        private static readonly DateTime _bankBootRealTime = DateTime.UtcNow;
+
+        // ------------------------------------------------------------
+        // Health state machine
+        // ------------------------------------------------------------
+        private enum BankHealthState
+        {
+            WarmingUp = 0,
+            Healthy = 1,
+            Broken = 2
+        }
+
+        // ------------------------------------------------------------
         // Event Registration
-        // ============================================
+        // ------------------------------------------------------------
         public override void RegisterEvents()
         {
             CampaignEvents.OnSessionLaunchedEvent.AddNonSerializedListener(this, OnSessionLaunched);
             CampaignEvents.DailyTickEvent.AddNonSerializedListener(this, OnDailyTick);
         }
 
-        // ============================================
+        // ------------------------------------------------------------
         // JSON Persistence (Save/Load)
-        // ============================================
+        // ------------------------------------------------------------
         public override void SyncData(IDataStore dataStore)
         {
             if (dataStore == null)
@@ -57,19 +86,28 @@ namespace BanksOfCalradia.Source.Systems
             {
                 try
                 {
-                    var settings = new JsonSerializerSettings
+                    string json;
+                    lock (_storageLock)
                     {
-                        NullValueHandling = NullValueHandling.Ignore,
-                        MissingMemberHandling = MissingMemberHandling.Ignore
-                    };
+                        json = JsonConvert.SerializeObject(GetStorage(), BuildJsonSettings());
+                    }
 
-                    string json = JsonConvert.SerializeObject(_bankStorage, settings);
                     dataStore.SyncData("Bank.StorageJson", ref json);
                 }
                 catch
                 {
-                    // Falha silenciosa em produção
+                    // silencioso: nunca crasha o save
+                    try
+                    {
+                        string fallback = "{}";
+                        dataStore.SyncData("Bank.StorageJson", ref fallback);
+                    }
+                    catch
+                    {
+                        // ignora
+                    }
                 }
+
                 return;
             }
 
@@ -84,112 +122,87 @@ namespace BanksOfCalradia.Source.Systems
                 loadedJson = null;
             }
 
+            bool ok = false;
+
             if (!string.IsNullOrEmpty(loadedJson))
             {
                 try
                 {
-                    var settings = new JsonSerializerSettings
+                    var settings = BuildJsonSettings();
+                    var loaded = JsonConvert.DeserializeObject<BankStorage>(loadedJson, settings);
+                    lock (_storageLock)
                     {
-                        NullValueHandling = NullValueHandling.Ignore,
-                        MissingMemberHandling = MissingMemberHandling.Ignore
-                    };
-
-                    _bankStorage = JsonConvert.DeserializeObject<BankStorage>(loadedJson, settings) ?? new BankStorage();
+                        _bankStorage = loaded ?? new BankStorage();
+                    }
+                    ok = true;
                 }
                 catch
+                {
+                    ok = false;
+                }
+            }
+
+            if (!ok)
+            {
+                lock (_storageLock)
                 {
                     _bankStorage = new BankStorage();
                 }
             }
-            else
+
+            // NÃO acessar Settlement/Hero/UI aqui. Só valida estrutura de dados.
+            // Se o storage estiver inconsistente, warmup vai tentar rebuild e/ou marcar como Broken.
+            try
             {
-                _bankStorage = new BankStorage();
+                var reason = string.Empty;
+                var healthOk = ValidateAndMaybeRebuildStorage(out reason, allowRebuild: true);
+
+                if (!healthOk)
+                {
+                    _healthState = BankHealthState.Broken;
+                    _healthReason = string.IsNullOrWhiteSpace(reason) ? "Bank data validation failed during load." : reason;
+                }
+                else
+                {
+                    // Ainda deixa como WarmingUp: sessão ainda nem lançou menus.
+                    _healthState = BankHealthState.WarmingUp;
+                    _healthReason = "Loaded. Waiting warmup...";
+                }
+            }
+            catch
+            {
+                _healthState = BankHealthState.Broken;
+                _healthReason = "Bank data validation failed during load.";
             }
         }
 
-        // ============================================
+        private static JsonSerializerSettings BuildJsonSettings()
+        {
+            return new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore,
+                MissingMemberHandling = MissingMemberHandling.Ignore
+            };
+        }
+
+        // ------------------------------------------------------------
         // Menu Registration
-        // ============================================
+        // ------------------------------------------------------------
         private void OnSessionLaunched(CampaignGameStarter starter)
         {
             if (starter == null)
                 return;
 
-            // Evita duplicar em edge cases de bootstrap/reload
             if (_menusRegistered)
                 return;
 
             _menusRegistered = true;
 
-            // Registra menus imediatamente (só registra, não executa lógica pesada)
-            // Importante: NÃO dependa de Settlement.CurrentSettlement aqui.
+            // Apenas registro (sem lógica pesada / sem Settlement)
             RegisterAllMenus(starter);
 
-            // Warmup para mitigar crash "primeiro acesso / frame 0"
-            _ = WarmupUiAsync();
-        }
-
-        // Aquece o estado para evitar interações cedo demais
-        private async Task WarmupUiAsync()
-        {
-            try
-            {
-                _uiWarmupReady = false;
-
-                // 1) Delay curto (frame 0/1) sei lá meit pra 350
-                await Task.Delay(350);
-
-                // 2) Precisa do mínimo do mínimo: campanha/hero - não sei, meti pra 800
-                if (!IsBaseEnvironmentReady())
-                {
-                    await Task.Delay(800);
-                }
-
-                // 3) Ainda não pronto? Faz mais um try curto - alterei para mais 800
-                if (!IsBaseEnvironmentReady())
-                {
-                    await Task.Delay(800);
-                }
-
-                // Não exige Settlement aqui, porque o jogador pode estar no mapa.
-                // Quando entrar em uma cidade, as condições/menu init vão cuidar do resto.
-                _uiWarmupReady = IsBaseEnvironmentReady();
-            }
-            catch
-            {
-                _uiWarmupReady = false;
-            }
-        }
-
-        // Ambiente mínimo para liberar UI (sem exigir estar dentro de cidade)
-        private bool IsBaseEnvironmentReady()
-        {
-            try
-            {
-                if (Campaign.Current == null) return false;
-                if (Hero.MainHero == null) return false;
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        // Ambiente completo (dentro de uma cidade real)
-        private static bool IsTownEnvironmentReady()
-        {
-            try
-            {
-                var s = Settlement.CurrentSettlement;
-                if (s == null) return false;
-                if (s.Town == null) return false;
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            // Warmup para mitigar crash de "primeiro acesso"
+            _ = WarmupUiAndStorageAsync();
         }
 
         private void RegisterAllMenus(CampaignGameStarter starter)
@@ -209,42 +222,54 @@ namespace BanksOfCalradia.Source.Systems
                 isLeave: false
             );
 
-            // Menu principal do banco:
-            // Em vez de "texto fixo" (que pode pegar Settlement null e ficar errado pra sempre),
-            // usamos init delegate para sempre atualizar corretamente e evitar edge-crashes.
+            // Menu principal do banco (sempre existe; se health falhar, mostra erro e esconde botões)
             starter.AddGameMenu(
                 "bank_menu",
                 L.S("bank_menu_loading", "Loading..."),
-                args => OnBankMenuInit(args)
+                OnBankMenuInit
             );
 
+            // Savings
             starter.AddGameMenuOption(
                 "bank_menu",
                 "bank_savings",
                 L.S("open_savings", "Access Savings Account"),
                 a =>
                 {
-                    // Se não estiver em cidade real, nem deixa clicar
-                    if (!IsTownEnvironmentReady()) return false;
+                    // HIDE se health não está OK
+                    if (!IsSystemFullyReady())
+                        return false;
+
+                    // Town real obrigatória
+                    if (!IsTownEnvironmentReady())
+                        return false;
+
                     a.optionLeaveType = GameMenuOption.LeaveType.Submenu;
                     return true;
                 },
                 _ => BankSafeUI.Switch("bank_savings")
             );
 
+            // Loans
             starter.AddGameMenuOption(
                 "bank_menu",
                 "bank_loans",
                 L.S("open_loans", "Access Loan Services"),
                 a =>
                 {
-                    if (!IsTownEnvironmentReady()) return false;
+                    if (!IsSystemFullyReady())
+                        return false;
+
+                    if (!IsTownEnvironmentReady())
+                        return false;
+
                     a.optionLeaveType = GameMenuOption.LeaveType.Submenu;
                     return true;
                 },
                 _ => BankSafeUI.Switch("bank_loanmenu")
             );
 
+            // Back
             starter.AddGameMenuOption(
                 "bank_menu",
                 "bank_back",
@@ -259,21 +284,250 @@ namespace BanksOfCalradia.Source.Systems
             );
         }
 
-        // Init seguro do menu principal
+        // ------------------------------------------------------------
+        // Warmup — UI + Storage health gate
+        // ------------------------------------------------------------
+        private async Task WarmupUiAndStorageAsync()
+        {
+            try
+            {
+                _uiWarmupReady = false;
+                _healthState = BankHealthState.WarmingUp;
+                _healthReason = "Warming up...";
+                _warmupAttemptCount++;
+
+                // Pequeno delay inicial: evita frame 0/1 do pipeline de menus/gauntlet
+                await Task.Delay(350);
+
+                // Aguarda campanha/hero (ambiente mínimo), sem exigir cidade
+                for (int i = 0; i < 3; i++)
+                {
+                    if (IsBaseEnvironmentReady())
+                        break;
+
+                    await Task.Delay(i == 0 ? 650 : 800);
+                }
+
+                _uiWarmupReady = IsBaseEnvironmentReady();
+
+                if (!_uiWarmupReady)
+                {
+                    _healthState = BankHealthState.WarmingUp;
+                    _healthReason = "Campaign not ready yet.";
+                    return;
+                }
+
+                // "Puxar dados internamente" (aquecimento):
+                // 1) valida storage
+                // 2) tenta rebuild via roundtrip JSON
+                // 3) se falhar -> Broken (menu mostra erro e oculta botões)
+                string reason;
+                bool ok = ValidateAndMaybeRebuildStorage(out reason, allowRebuild: true);
+
+                if (ok)
+                {
+                    _healthState = BankHealthState.Healthy;
+                    _healthReason = "OK";
+                }
+                else
+                {
+                    // Tentativa extra após um pequeno delay (mitiga edge-case de load incompleto)
+                    await Task.Delay(250);
+
+                    ok = ValidateAndMaybeRebuildStorage(out reason, allowRebuild: true);
+                    if (ok)
+                    {
+                        _healthState = BankHealthState.Healthy;
+                        _healthReason = "OK (recovered)";
+                    }
+                    else
+                    {
+                        _healthState = BankHealthState.Broken;
+                        _healthReason = string.IsNullOrWhiteSpace(reason)
+                            ? "A critical error was detected while validating bank data."
+                            : reason;
+                    }
+                }
+
+                //-------------------------------------------------------
+                //  PREWARM DO BANCO — criação antecipada das contas
+                //-------------------------------------------------------
+                try
+                {
+                    if (_healthState == BankHealthState.Healthy)
+                    {
+                        // Prewarm agora é o ÚNICO responsável por definir Initialized = true
+                        await BankPrewarmSystem.RunPrewarmAsync(GetStorage(), Hero.MainHero?.StringId);
+                    }
+                }
+                catch
+                {
+                    // Falha silenciosa → não quebrar o menu
+                }
+            }
+            catch
+            {
+                _healthState = BankHealthState.Broken;
+                _healthReason = "A critical error was detected while warming up bank data.";
+                _uiWarmupReady = false;
+            }
+        }
+
+        private bool ValidateAndMaybeRebuildStorage(out string reason, bool allowRebuild)
+        {
+            reason = null;
+
+            try
+            {
+                BankStorage snapshot;
+                lock (_storageLock)
+                {
+                    snapshot = _bankStorage ?? new BankStorage();
+                }
+
+                // Passo 1: tenta serializar (se falhar, storage está corrompido/incompatível)
+                string json;
+                try
+                {
+                    json = JsonConvert.SerializeObject(snapshot, BuildJsonSettings());
+                }
+                catch (Exception ex)
+                {
+                    reason = "Bank data serialization failed: " + ex.Message;
+                    return false;
+                }
+
+                if (!allowRebuild)
+                    return true;
+
+                // Passo 2: roundtrip parse (rebuild) — detecta membros inválidos e normaliza
+                try
+                {
+                    var rebuilt = JsonConvert.DeserializeObject<BankStorage>(json, BuildJsonSettings());
+                    if (rebuilt == null)
+                    {
+                        reason = "Bank data rebuild produced null storage.";
+                        return false;
+                    }
+
+                    lock (_storageLock)
+                    {
+                        _bankStorage = rebuilt;
+                    }
+
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    reason = "Bank data rebuild failed: " + ex.Message;
+                    return false;
+                }
+            }
+            catch
+            {
+                reason = "Bank data validation failed.";
+                return false;
+            }
+        }
+
+        // ------------------------------------------------------------
+        // Environment checks
+        // ------------------------------------------------------------
+        private static bool IsBaseEnvironmentReady()
+        {
+            try
+            {
+                return Campaign.Current != null && Hero.MainHero != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsTownEnvironmentReady()
+        {
+            try
+            {
+                var s = Settlement.CurrentSettlement;
+                return s != null && s.Town != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // ------------------------------------------------------------
+        // Town menu label condition (Visit Bank of {CITY}) – FULLY SAFE
+        // ------------------------------------------------------------
+        private bool MenuCondition_SetDynamicLabel(MenuCallbackArgs args)
+        {
+            try
+            {
+                // 0) Banco ainda não está totalmente pronto?
+                //    → NÃO mostra a opção no menu da cidade.
+                if (!IsSystemFullyReady())
+                    return false;
+
+                // 1) Cidade real obrigatória (este botão só pode existir dentro de cidade)
+                var settlement = Settlement.CurrentSettlement;
+                if (settlement == null || settlement.Town == null)
+                    return false;
+
+                // 2) Configuração padrão do botão
+                args.optionLeaveType = GameMenuOption.LeaveType.Submenu;
+
+                // 3) Nome da cidade
+                string townName = settlement.Name?.ToString() ?? L.S("default_city", "Town");
+
+                // 4) Texto dinâmico seguro
+                var labelText = L.T("visit_label", "Visit Bank of {CITY}");
+                labelText.SetTextVariable("CITY", townName);
+                args.Text = labelText;
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // ------------------------------------------------------------
+        // Bank Menu init (shows: loading / broken / normal)
+        // ------------------------------------------------------------
         private void OnBankMenuInit(MenuCallbackArgs args)
         {
             try
             {
-                // Se o warmup ainda não liberou (primeiros frames), mostra texto neutro e pronto.
-                // Evita o jogador clicar e estourar menus antes do Gauntlet/estado estar estável.
-                if (!_uiWarmupReady)
+                // Texto base sempre seguro
+                args.MenuTitle = L.T("bank_title", "Bank");
+
+                // ------------------------------------------------------------
+                // SE O SISTEMA NÃO ESTÁ PRONTO → mostrar tela de loading
+                // ------------------------------------------------------------
+                if (!IsSystemFullyReady())
                 {
-                    args.MenuTitle = L.T("bank_title_loading", "Bank");
-                    BankSafeUI.SetText(args, L.T("bank_loading", "Initializing bank interface...\n\nPlease try again in a moment."));
+                    float remain = GetRemainingBootTime();
+                    string secText = remain > 0f
+                        ? $"{remain:F1} seconds remaining..."
+                        : "Finalizing modules...";
+
+                    var txt = L.T("bank_bootwait",
+                        "Loading bank systems...\n\n" +
+                        "Please wait while the game initializes internal modules.\n\n" +
+                        "{SEC}");
+
+                    txt.SetTextVariable("SEC", secText);
+
+                    args.MenuTitle = L.T("bank_loading", "Bank (Loading)");
+                    BankSafeUI.SetText(args, txt);
+
                     return;
                 }
 
-                // Exige cidade real para o menu principal existir de fato
+                // 2) Precisa estar em cidade real pra exibir conteúdo real
                 if (!IsTownEnvironmentReady())
                 {
                     args.MenuTitle = L.T("bank_unavailable", "Bank (Unavailable)");
@@ -281,113 +535,246 @@ namespace BanksOfCalradia.Source.Systems
                     return;
                 }
 
-                // Texto real (com cidade)
-                string menuText = GetBankMainMenuText();
+                // 3) Storage com problema: exibe erro e NÃO mostra botões (condições retornam false)
+                if (_healthState == BankHealthState.Broken)
+                {
+                    args.MenuTitle = L.T("bank_error", "Bank (Error)");
 
-                args.MenuTitle = L.T("bank_title", "Bank");
-                BankSafeUI.SetText(args, new TaleWorlds.Localization.TextObject(menuText));
+                    var txt = L.T("bank_broken_desc",
+                        "A critical error was detected while initializing the bank system.\n\n" +
+                        "Savings and Loans were disabled to prevent crashes.\n\n" +
+                        "Please contact the mod author and include your game version, mod list, and a crash report.\n\n" +
+                        "Details: {REASON}");
+
+                    txt.SetTextVariable("REASON", string.IsNullOrWhiteSpace(_healthReason) ? "Unknown" : _healthReason);
+                    BankSafeUI.SetText(args, txt);
+                    return;
+                }
+
+                // 4) Normal
+                BankSafeUI.SetText(args, BuildBankMainMenuTextSafe());
             }
             catch
             {
-                // Silencioso para não crashar
                 try
                 {
                     args.MenuTitle = L.T("bank_error", "Bank (Error)");
-                    BankSafeUI.SetText(args, L.T("bank_error_desc", "An error occurred while initializing the bank menu."));
+                    BankSafeUI.SetText(args, L.T("bank_error_desc",
+                        "An error occurred while initializing the bank menu."));
                 }
-                catch { }
+                catch
+                {
+                    // silencioso
+                }
             }
         }
 
-        private bool MenuCondition_SetDynamicLabel(MenuCallbackArgs args)
+        private TextObject BuildBankMainMenuTextSafe()
         {
-            // ✅ GATE 1: warmup base
-            if (!_uiWarmupReady)
-                return false;
+            try
+            {
+                var s = Settlement.CurrentSettlement;
+                if (s == null || s.Town == null)
+                    return new TextObject("Bank\n\n(This menu is only available inside a town.)");
 
-            // ✅ GATE 2: cidade real
-            var settlement = Settlement.CurrentSettlement;
-            if (settlement == null || settlement.Town == null)
-                return false;
+                string townName = s.Name?.ToString() ?? L.S("default_city", "Town");
 
-            args.optionLeaveType = GameMenuOption.LeaveType.Submenu;
+                var text = L.T("menu_text",
+                    "Bank of {CITY}\n\n" +
+                    "Welcome to the city's bank.\n\n" +
+                    "Choose an option below to manage your finances:\n\n" +
+                    "- Access Savings Account\n" +
+                    "- Loan Services\n" +
+                    "- Return to Town");
 
-            string townName = settlement.Name?.ToString() ?? L.S("default_city", "Town");
-            var labelText = L.T("visit_label", "Visit Bank of {CITY}");
-            labelText.SetTextVariable("CITY", townName);
-            args.Text = labelText;
-
-            return true;
+                text.SetTextVariable("CITY", townName);
+                return text;
+            }
+            catch
+            {
+                return new TextObject("Bank\n\n(Unable to load bank menu text.)");
+            }
         }
 
-        private string GetBankMainMenuText()
-        {
-            var s = Settlement.CurrentSettlement;
-
-            // fallback seguro
-            if (s == null || s.Town == null)
-                return "Bank\n\n(This menu is only available inside a town.)";
-
-            string townName = s.Name?.ToString() ?? L.S("default_city", "Town");
-
-            var text = L.T("menu_text",
-                "Bank of {CITY}\n\nWelcome to the city's bank.\n\nChoose an option below to manage your finances:\n\n- Access Savings Account\n- Loan Services\n- Return to Town");
-            text.SetTextVariable("CITY", townName);
-            return text.ToString();
-        }
-
-        // ============================================
+        // ------------------------------------------------------------
         // Daily Tick Delegates
-        // ============================================
+        // ------------------------------------------------------------
         private void OnDailyTick()
         {
+            // Se o storage estiver quebrado, não roda lógica diária (evita cascata)
+            if (_healthState == BankHealthState.Broken)
+                return;
+
             try
             {
-                BankSuccessionUtils.CheckAndTransferOwnership(_bankStorage);
+                lock (_storageLock)
+                {
+                    BankSuccessionUtils.CheckAndTransferOwnership(GetStorage());
+                }
             }
             catch
             {
-                // Silencioso em produção
+                // silencioso em produção
             }
 
             try
             {
-                BankTradeXpUtils.ApplyDailyTradeXp(_bankStorage);
+                lock (_storageLock)
+                {
+                    BankTradeXpUtils.ApplyDailyTradeXp(GetStorage());
+                }
             }
             catch
             {
-                // Silencioso em produção
+                // silencioso em produção
             }
         }
 
-        // ============================================
-        // Manual Sync Utility
-        // ============================================
+        // ------------------------------------------------------------
+        // Manual Sync Utility (sanity / debug safe)
+        // ------------------------------------------------------------
         public void SyncBankData()
+        {
+            // Importante: o jogo salva via SyncData; isso aqui é apenas uma
+            // validação/estabilização local para reduzir edge-cases e detectar corrupção cedo.
+            try
+            {
+                string reason;
+                bool ok = ValidateAndMaybeRebuildStorage(out reason, allowRebuild: true);
+
+                if (!ok)
+                {
+                    _healthState = BankHealthState.Broken;
+                    _healthReason = string.IsNullOrWhiteSpace(reason)
+                        ? "Bank data validation failed during runtime."
+                        : reason;
+                }
+            }
+            catch
+            {
+                _healthState = BankHealthState.Broken;
+                _healthReason = "Bank data validation failed during runtime.";
+            }
+        }
+
+        // ------------------------------------------------------------
+        // Public Accessor
+        // ------------------------------------------------------------
+        public BankStorage GetStorage()
+        {
+            lock (_storageLock)
+            {
+                _bankStorage ??= new BankStorage();
+                return _bankStorage;
+            }
+        }
+
+        // Optional getter (useful for debug overlays)
+        public (bool uiReady, string health, string reason, int attempts) GetHealthSnapshot()
+        {
+            return (_uiWarmupReady, _healthState.ToString(), _healthReason, _warmupAttemptCount);
+        }
+
+        // ------------------------------------------------------------
+        // Boot timing helpers (real time, not CampaignTime)
+        // ------------------------------------------------------------
+        private float GetElapsedBootSeconds()
         {
             try
             {
-                var settings = new JsonSerializerSettings
-                {
-                    NullValueHandling = NullValueHandling.Ignore,
-                    MissingMemberHandling = MissingMemberHandling.Ignore
-                };
-
-                string json = JsonConvert.SerializeObject(_bankStorage, settings);
-                _ = json;
+                return (float)(DateTime.UtcNow - _bankBootRealTime).TotalSeconds;
             }
-            catch (Exception ex)
+            catch
             {
-                InformationManager.DisplayMessage(new InformationMessage(
-                    $"[BanksOfCalradia] Error during bank sync: {ex.Message}",
-                    Color.FromUint(0xFFFF5555)
-                ));
+                return 9999f; // fallback seguro
             }
         }
 
-        // ============================================
-        // Public Accessor
-        // ============================================
-        public BankStorage GetStorage() => _bankStorage ??= new BankStorage();
+        private float GetRemainingBootTime()
+        {
+            float remain = 15f - GetElapsedBootSeconds();
+            if (remain < 0f) remain = 0f;
+            return remain;
+        }
+
+        public bool IsSystemFullyReady()
+        {
+            try
+            {
+                var storage = GetStorage();
+
+                // ============================================================
+                // 1) Esperar SEMPRE 15s de tempo REAL de sessão
+                //    (não depende de CampaignTime, nem de save)
+                // ============================================================
+                if (GetElapsedBootSeconds() < 25f)
+                    return false;
+
+                // ============================================================
+                // 2) Campaign/Hero obrigatórios
+                // ============================================================
+                if (Campaign.Current == null || Hero.MainHero == null)
+                    return false;
+
+                // ============================================================
+                // 3) Ambiente de cidade obrigatório
+                // ============================================================
+                var settlement = Settlement.CurrentSettlement;
+                if (settlement == null || settlement.Town == null)
+                    return false;
+
+                // ============================================================
+                // 4) UI warmup concluída
+                // ============================================================
+                if (!_uiWarmupReady)
+                    return false;
+
+                // ============================================================
+                // 5) Health deve estar OK
+                // ============================================================
+                if (_healthState != BankHealthState.Healthy)
+                    return false;
+
+                // ============================================================
+                // 6) Storage deve estar inicializado
+                // ============================================================
+                if (storage == null || !storage.Initialized)
+                    return false;
+
+                // ============================================================
+                // 7) Savings devem existir para a cidade atual
+                // ============================================================
+                string playerId = Hero.MainHero.StringId;
+                string townId = settlement.StringId;
+
+                if (!storage.SavingsByPlayer.TryGetValue(playerId, out var list) || list == null)
+                    return false;
+
+                bool found = false;
+                foreach (var s in list)
+                {
+                    if (s != null && s.TownId == townId)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                    return false;
+
+                // ============================================================
+                // 8) Gauntlet precisa ter tela carregada
+                // ============================================================
+                if (ScreenManager.TopScreen == null)
+                    return false;
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 }

@@ -165,5 +165,10 @@
 	<string id="bank_finance_auto_reinvest_summary_2" text="Всего" />
 	<string id="bank_finance_auto_reinvest_summary_3" text="добавлено на {COUNT} банковских счетов." />
 
+	<string id="bank_bank_bootwait" text="Загрузка банковских систем...&#10;&#10;Пожалуйста, подождите, пока игра инициализирует внутренние модули.&#10;&#10;{SEC}" />
+	<string id="bank_bank_loading" text="Банк (Загрузка)" />
+	<string id="bank_bank_unavailable" text="Банк (Недоступно)" />
+	<string id="bank_bank_need_town" text="Это меню доступно только внутри города." />
+
   </strings>
 </base>

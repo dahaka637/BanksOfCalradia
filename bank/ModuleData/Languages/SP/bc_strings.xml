@@ -164,6 +164,11 @@
 	<string id="bank_finance_auto_reinvest_summary_1" text="Reinversión automática completada:" />
 	<string id="bank_finance_auto_reinvest_summary_2" text="Total de" />
 	<string id="bank_finance_auto_reinvest_summary_3" text="añadido en {COUNT} cuentas bancarias." />
+	  
+	<string id="bank_bank_bootwait" text="Cargando los sistemas bancarios...&#10;&#10;Por favor espere mientras el juego inicializa los módulos internos.&#10;&#10;{SEC}" />
+	<string id="bank_bank_loading" text="Banco (Cargando)" />
+	<string id="bank_bank_unavailable" text="Banco (No disponible)" />
+	<string id="bank_bank_need_town" text="Este menú solo está disponible dentro de una ciudad." />
 
   </strings>
 </base>

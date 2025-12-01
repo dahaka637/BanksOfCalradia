@@ -1,11 +1,26 @@
-﻿using System;
+﻿// ============================================
+// BanksOfCalradia - BankSafeUI.cs
+// Author: Dahaka
+// Version: 3.0.0 (Ultra Safe UI + ExecuteAction Shield + Pipeline Finalizers)
+// Description:
+//   Safety layer for bank menus (bank_*):
+//   - Safe Switch / Safe Text write
+//   - Strict context gates for bank_* navigation
+//   - Harmony patch for GameMenu.SwitchToMenu (bank_* gate)
+//   - Harmony patch for GameMenuItemVM.ExecuteAction (swallow bank-related NREs)
+//   - Optional Harmony bootstrap that finalizes (swallows) exceptions in menu pipeline
+// ============================================
+
+using System;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using HarmonyLib;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.GameMenus;
 using TaleWorlds.CampaignSystem.Settlements;
+using TaleWorlds.CampaignSystem.ViewModelCollection.GameMenu;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
 using TaleWorlds.Localization;
@@ -15,56 +30,108 @@ namespace BanksOfCalradia.Source.Core
 {
     public static class BankSafeUI
     {
+        // Cooldown/guard contra double-click e race de transição
+        private const int SWITCH_COOLDOWN_MS = 160;
+        private const int TRANSITION_RELEASE_MS = 140;
+
+        private static long _lastSwitchTicksUtc;
+        private static int _transitionGuard; // 0/1
+
         // =====================================================================
-        // 1. Safe Switch – chama menus do banco sem crashar
+        // 1. Safe Switch – chama menus sem crashar (bank_* é estrito)
         // =====================================================================
         public static void Switch(string menuId)
         {
+            SafeSwitchInternal(menuId);
+        }
+
+        private static void SafeSwitchInternal(string menuId)
+        {
             try
             {
-                if (!IsContextOK())
+                if (string.IsNullOrWhiteSpace(menuId))
                     return;
 
-                if (string.IsNullOrEmpty(menuId))
+                // Context mínimo sempre é exigido para qualquer troca
+                if (!IsBaseContextOK())
                     return;
 
-                if (GameStateManager.Current == null ||
-                    GameStateManager.Current.ActiveStateDisabledByUser)
+                // Bank_* exige contexto estrito (campanha + hero + town + UI)
+                if (IsBankMenuId(menuId) && !IsContextOK())
+                    return;
+
+                // Throttle
+                long now = DateTime.UtcNow.Ticks;
+                long last = Interlocked.Read(ref _lastSwitchTicksUtc);
+                if (TicksToMs(now - last) < SWITCH_COOLDOWN_MS)
+                    return;
+
+                Interlocked.Exchange(ref _lastSwitchTicksUtc, now);
+
+                // Guard contra reentrância
+                if (Interlocked.Exchange(ref _transitionGuard, 1) == 1)
+                    return;
+
+                try
                 {
-                    return;
-                }
+                    if (GameStateManager.Current == null || GameStateManager.Current.ActiveStateDisabledByUser)
+                        return;
 
-                GameMenu.SwitchToMenu(menuId);
+                    GameMenu.SwitchToMenu(menuId);
+                }
+                catch
+                {
+                    // Silencioso em produção
+                }
+                finally
+                {
+                    ReleaseTransitionGuardLater();
+                }
             }
             catch
             {
-                // Silencioso em produção – nunca crasha o jogo
+                // Silencioso
             }
+        }
+
+        private static async void ReleaseTransitionGuardLater()
+        {
+            try
+            {
+                await Task.Delay(TRANSITION_RELEASE_MS);
+            }
+            catch
+            {
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _transitionGuard, 0);
+            }
+        }
+
+        private static long TicksToMs(long ticks)
+        {
+            // 10.000 ticks = 1ms
+            return ticks / 10_000;
         }
 
         // =====================================================================
         // 2. Safe Text Write – altera texto do menu sem NullRef
+        //    (usa contexto mínimo; não exige Settlement para permitir fallback)
         // =====================================================================
         public static void SetText(MenuCallbackArgs args, TextObject text)
         {
             try
             {
-                if (!IsContextOK())
+                if (!IsBaseContextOK())
                     return;
 
                 var ctx = args?.MenuContext;
-                if (ctx == null)
+                var menu = ctx?.GameMenu;
+                if (menu == null || text == null)
                     return;
 
-                var menu = ctx.GameMenu;
-                if (menu == null)
-                    return;
-
-                var field = typeof(GameMenu).GetField(
-                    "_defaultText",
-                    BindingFlags.NonPublic | BindingFlags.Instance
-                );
-
+                var field = typeof(GameMenu).GetField("_defaultText", BindingFlags.NonPublic | BindingFlags.Instance);
                 if (field == null)
                     return;
 
@@ -153,13 +220,11 @@ namespace BanksOfCalradia.Source.Core
                     }
                     catch
                     {
-                        // Silencioso
                     }
                 });
             }
             catch
             {
-                // Silencioso
             }
         }
 
@@ -172,14 +237,13 @@ namespace BanksOfCalradia.Source.Core
             {
                 await Task.Delay(75);
 
-                if (!IsContextOK())
+                if (!IsBaseContextOK())
                     return;
 
                 action?.Invoke();
             }
             catch
             {
-                // Silencioso
             }
         }
 
@@ -189,6 +253,230 @@ namespace BanksOfCalradia.Source.Core
             return !string.IsNullOrEmpty(menuId) &&
                    menuId.StartsWith("bank_", StringComparison.Ordinal);
         }
+
+        internal static void NotifySoftFail(string message)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(message))
+                    message = "[BanksOfCalradia] Bank UI recovered from an invalid state. Please try again.";
+
+                InformationManager.DisplayMessage(
+                    new InformationMessage(
+                        message,
+                        Color.FromUint(0xFFFF6666)
+                    )
+                );
+            }
+            catch
+            {
+            }
+        }
+
+        // =====================================================================
+        // ExecuteAction detection helpers
+        // =====================================================================
+        internal static bool LooksBankRelatedFromVm(object vm, out string hintId)
+        {
+            hintId = null;
+
+            try
+            {
+                // 1) Tenta extrair qualquer string "bank_*" diretamente do VM (Id, StringId, etc.)
+                if (TryExtractAnyBankString(vm, out hintId))
+                    return true;
+
+                // 2) Tenta pegar o menu atual
+                if (TryGetActiveMenuId(out var menuId) && IsBankMenuId(menuId))
+                {
+                    hintId = menuId;
+                    return true;
+                }
+            }
+            catch
+            {
+            }
+
+            return false;
+        }
+
+        private static bool TryExtractAnyBankString(object obj, out string found)
+        {
+            found = null;
+            if (obj == null)
+                return false;
+
+            var t = obj.GetType();
+
+            // Properties
+            try
+            {
+                var props = t.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                foreach (var p in props)
+                {
+                    if (p == null || p.GetIndexParameters().Length != 0)
+                        continue;
+
+                    if (p.PropertyType == typeof(string))
+                    {
+                        string v = null;
+                        try { v = p.GetValue(obj) as string; } catch { }
+                        if (IsBankMenuId(v))
+                        {
+                            found = v;
+                            return true;
+                        }
+                    }
+
+                    // Se tiver algum objeto que contenha string "bank_*" dentro (GameMenuOption, etc.)
+                    object sub = null;
+                    try { sub = p.GetValue(obj); } catch { }
+                    if (sub != null && sub != obj && TryExtractAnyBankString(sub, out found))
+                        return true;
+                }
+            }
+            catch
+            {
+            }
+
+            // Fields
+            try
+            {
+                var fields = t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                foreach (var f in fields)
+                {
+                    if (f == null)
+                        continue;
+
+                    if (f.FieldType == typeof(string))
+                    {
+                        string v = null;
+                        try { v = f.GetValue(obj) as string; } catch { }
+                        if (IsBankMenuId(v))
+                        {
+                            found = v;
+                            return true;
+                        }
+                    }
+
+                    object sub = null;
+                    try { sub = f.GetValue(obj); } catch { }
+                    if (sub != null && sub != obj && TryExtractAnyBankString(sub, out found))
+                        return true;
+                }
+            }
+            catch
+            {
+            }
+
+            return false;
+        }
+
+        private static bool TryGetActiveMenuId(out string menuId)
+        {
+            menuId = null;
+
+            try
+            {
+                var camp = Campaign.Current;
+                if (camp == null)
+                    return false;
+
+                // Use reflection to avoid API differences between game versions
+                object gmMgr = null;
+
+                try
+                {
+                    var p1 = camp.GetType().GetProperty("GameMenuManager", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    if (p1 != null) gmMgr = p1.GetValue(camp);
+                }
+                catch { }
+
+                if (gmMgr == null)
+                {
+                    try
+                    {
+                        var f1 = camp.GetType().GetField("_gameMenuManager", BindingFlags.Instance | BindingFlags.NonPublic);
+                        if (f1 != null) gmMgr = f1.GetValue(camp);
+                    }
+                    catch { }
+                }
+
+                if (gmMgr == null)
+                    return false;
+
+                object ctx = null;
+
+                // Common names
+                ctx = TryGetMemberValue(gmMgr, "CurrentMenuContext");
+                if (ctx == null) ctx = TryGetMemberValue(gmMgr, "MenuContext");
+                if (ctx == null) ctx = TryGetMemberValue(gmMgr, "CurrentGameMenuContext");
+
+                if (ctx == null)
+                    return false;
+
+                object gm = TryGetMemberValue(ctx, "GameMenu");
+                if (gm == null)
+                    return false;
+
+                // Common id accessors
+                var sid = TryGetMemberValue(gm, "StringId") as string;
+                if (!string.IsNullOrWhiteSpace(sid))
+                {
+                    menuId = sid;
+                    return true;
+                }
+
+                sid = TryGetMemberValue(gm, "_id") as string;
+                if (!string.IsNullOrWhiteSpace(sid))
+                {
+                    menuId = sid;
+                    return true;
+                }
+
+                sid = TryGetMemberValue(gm, "_stringId") as string;
+                if (!string.IsNullOrWhiteSpace(sid))
+                {
+                    menuId = sid;
+                    return true;
+                }
+            }
+            catch
+            {
+            }
+
+            return false;
+        }
+
+        private static object TryGetMemberValue(object obj, string name)
+        {
+            if (obj == null || string.IsNullOrWhiteSpace(name))
+                return null;
+
+            var t = obj.GetType();
+
+            try
+            {
+                var p = t.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (p != null && p.GetIndexParameters().Length == 0)
+                    return p.GetValue(obj);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                var f = t.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (f != null)
+                    return f.GetValue(obj);
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
     }
 
     // ============================================================================
@@ -197,6 +485,8 @@ namespace BanksOfCalradia.Source.Core
     [HarmonyPatch(typeof(GameMenu), "SwitchToMenu")]
     public static class Patch_SwitchToMenu_Safe
     {
+        [HarmonyPrefix]
+        [HarmonyPriority(Priority.First)]
         static bool Prefix(string menuId)
         {
             try
@@ -207,10 +497,7 @@ namespace BanksOfCalradia.Source.Core
 
                 // Para menus bank_* exige contexto seguro
                 if (!BankSafeUI.IsContextOK())
-                {
-                    // Bloqueia a mudança de menu, evitando crash
                     return false;
-                }
 
                 return true;
             }
@@ -223,15 +510,61 @@ namespace BanksOfCalradia.Source.Core
     }
 
     // ============================================================================
+    // 6.1 PATCH HARMONY — GameMenuItemVM.ExecuteAction (shield)
+    //
+    // Problema típico em crash logs:
+    //   Exception occurred inside invoke: ExecuteAction
+    //   Target type: GameMenuItemVM
+    //   Inner message: Object reference not set...
+    //
+    // Este patch:
+    //   - Só engole exception quando parecer "bank-related"
+    //   - Mantém comportamento normal para menus vanilla
+    // ============================================================================
+    [HarmonyPatch(typeof(GameMenuItemVM), "ExecuteAction")]
+    public static class Patch_GameMenuItemVM_ExecuteAction_Safe
+    {
+        [HarmonyFinalizer]
+        [HarmonyPriority(Priority.Last)]
+        static Exception Finalizer(Exception __exception, GameMenuItemVM __instance)
+        {
+            try
+            {
+                if (__exception == null)
+                    return null;
+
+                // Se nem contexto mínimo existe, deixa o jogo lidar (não mascarar)
+                if (!BankSafeUI.IsBaseContextOK())
+                    return __exception;
+
+                // Só engole se for relacionado ao bank_*
+                if (!BankSafeUI.LooksBankRelatedFromVm(__instance, out var hint))
+                    return __exception;
+
+                // Engole + aviso leve (sem travar loop)
+                BankSafeUI.NotifySoftFail(
+                    "[BanksOfCalradia] A bank action was blocked due to an unstable UI state. " +
+                    "Please open the bank again and try once more."
+                );
+
+                return null;
+            }
+            catch
+            {
+                return __exception;
+            }
+        }
+    }
+
+    // ============================================================================
     // 7. BOOTSTRAP — patches extras para pipeline de menus (Init/Condition/etc.)
     //
-    //    Objetivo:
-    //      - Se algum método do pipeline de menus estourar exception
-    //      - E esse pipeline estiver atendendo um menu bank_*
-    //      - Então engolir a exception e aplicar fallback no texto do banco,
-    //        em vez de deixar o jogo crashar.
+    // Objetivo:
+    //   - Se algum método do pipeline de menus estourar exception
+    //   - E esse pipeline estiver atendendo um menu bank_*
+    //   - Então engolir a exception e aplicar fallback,
+    //     em vez de deixar o jogo crashar.
     //
-    //    Só atua em bank_* e não toca em town ou menus vanilla.
     // ============================================================================
     public static class BankSafeUIHarmonyBootstrap
     {
@@ -249,7 +582,6 @@ namespace BanksOfCalradia.Source.Core
             }
             catch
             {
-                // Silencioso
             }
 
             try
@@ -258,7 +590,6 @@ namespace BanksOfCalradia.Source.Core
             }
             catch
             {
-                // Silencioso
             }
 
             return patched;
@@ -275,48 +606,57 @@ namespace BanksOfCalradia.Source.Core
             var methods = targetType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             foreach (var m in methods)
             {
-                if (m == null || m.IsAbstract)
-                    continue;
-
-                if (m.IsSpecialName)
-                    continue;
-
-                var ps = m.GetParameters();
-                if (ps == null || ps.Length == 0)
-                    continue;
-
-                bool hasMenuArgs = ps.Any(p => p.ParameterType == typeof(MenuCallbackArgs));
-                if (!hasMenuArgs)
-                    continue;
-
-                var name = m.Name ?? string.Empty;
-                bool looksLikePipeline =
-                    name.IndexOf("Init", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    name.IndexOf("Condition", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    name.IndexOf("Consequence", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    name.IndexOf("Run", StringComparison.OrdinalIgnoreCase) >= 0;
-
-                if (!looksLikePipeline)
-                    continue;
-
                 try
                 {
-                    var prefix = new HarmonyMethod(typeof(BankSafeUIHarmonyPatches).GetMethod(
+                    if (m == null || m.IsAbstract)
+                        continue;
+
+                    if (m.IsSpecialName)
+                        continue;
+
+                    if (m.ContainsGenericParameters)
+                        continue;
+
+                    var ps = m.GetParameters();
+                    if (ps == null || ps.Length == 0)
+                        continue;
+
+                    bool hasMenuArgs = ps.Any(p => p != null && p.ParameterType == typeof(MenuCallbackArgs));
+                    if (!hasMenuArgs)
+                        continue;
+
+                    var name = m.Name ?? string.Empty;
+                    bool looksLikePipeline =
+                        name.IndexOf("Init", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        name.IndexOf("Condition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        name.IndexOf("Consequence", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        name.IndexOf("Run", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                    if (!looksLikePipeline)
+                        continue;
+
+                    var prefixMi = typeof(BankSafeUIHarmonyPatches).GetMethod(
                         nameof(BankSafeUIHarmonyPatches.GenericPrefix),
                         BindingFlags.Static | BindingFlags.Public
-                    ));
+                    );
 
-                    var finalizer = new HarmonyMethod(typeof(BankSafeUIHarmonyPatches).GetMethod(
+                    var finalizerMi = typeof(BankSafeUIHarmonyPatches).GetMethod(
                         nameof(BankSafeUIHarmonyPatches.GenericFinalizer),
                         BindingFlags.Static | BindingFlags.Public
-                    ));
+                    );
+
+                    if (prefixMi == null || finalizerMi == null)
+                        continue;
+
+                    var prefix = new HarmonyMethod(prefixMi) { priority = Priority.First };
+                    var finalizer = new HarmonyMethod(finalizerMi) { priority = Priority.Last };
 
                     harmony.Patch(m, prefix: prefix, finalizer: finalizer);
                     count++;
                 }
                 catch
                 {
-                    // Silencioso – se algum método não puder ser patchado, ignoramos
+                    // Se algum método não puder ser patchado, ignoramos
                 }
             }
 
@@ -326,23 +666,16 @@ namespace BanksOfCalradia.Source.Core
 
     // ============================================================================
     // 8. PATCHES GENÉRICOS — prefix + finalizer
-    //    Funcionam para qualquer assinatura usando __instance / __args.
-    //    Prefix aqui é NO-OP (não altera nada), finalizer é quem engole
-    //    exceptions para menus bank_*.
     // ============================================================================
     public static class BankSafeUIHarmonyPatches
     {
-        // Prefix genérico: não interfere em nada, deixamos como NO-OP.
+        [HarmonyPriority(Priority.First)]
         public static void GenericPrefix(object __instance, object[] __args, MethodBase __originalMethod)
         {
-            // Intencionalmente vazio em produção.
+            // NO-OP em produção.
         }
 
-        // Finalizer genérico:
-        //  - Se não há exception → retorna null (sem alteração)
-        //  - Se há exception:
-        //      - Se menu é bank_* → engole (retorna null) e aplica fallback
-        //      - Se não é bank_* → devolve exception (comportamento normal)
+        [HarmonyPriority(Priority.Last)]
         public static Exception GenericFinalizer(Exception __exception, object __instance, object[] __args, MethodBase __originalMethod)
         {
             try
@@ -363,7 +696,6 @@ namespace BanksOfCalradia.Source.Core
             }
             catch
             {
-                // Se algo falhar na proteção, não mascarar erros genéricos
                 return __exception;
             }
         }
@@ -382,12 +714,9 @@ namespace BanksOfCalradia.Source.Core
                         if (a is MenuCallbackArgs mca)
                         {
                             var ctx = mca.MenuContext;
-                            if (ctx != null)
-                            {
-                                var gm = ctx.GameMenu;
-                                if (gm != null && TryGetGameMenuIdFromGameMenu(gm, out menuId))
-                                    return true;
-                            }
+                            var gm = ctx?.GameMenu;
+                            if (gm != null && TryGetGameMenuIdFromGameMenu(gm, out menuId))
+                                return true;
                         }
 
                         if (a is string s && BankSafeUI.IsBankMenuId(s))
@@ -477,21 +806,14 @@ namespace BanksOfCalradia.Source.Core
                 var title = new TextObject("Bank");
                 var body = new TextObject(
                     "The bank interface encountered an unexpected state and was safely recovered.\n\n" +
-                    "If this keeps happening, try opening the bank again after a moment."
+                    "If this keeps happening, reopen the bank and try again."
                 );
 
-                try
-                {
-                    mca.MenuTitle = title;
-                }
-                catch
-                {
-                }
+                try { mca.MenuTitle = title; } catch { }
 
                 try
                 {
-                    var ctx = mca.MenuContext;
-                    var gm = ctx?.GameMenu;
+                    var gm = mca.MenuContext?.GameMenu;
                     if (gm == null)
                         return;
 

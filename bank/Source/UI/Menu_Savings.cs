@@ -1,21 +1,23 @@
 ﻿// ============================================
 // BanksOfCalradia - BankMenu_Savings.cs
 // Author: Dahaka
-// Version: 2.6.0 (Double Precision + Visual Fix)
+// Version: 2.6.1 (Ultra Safe Context Hardening)
 // Description:
 //   Savings interface with fixed options and
 //   dynamic withdraw fee based on town economy.
 //   - Full double precision (supports trillions)
 //   - Clean screen (interest + balance)
 //   - Deposit and withdraw submenus
-//   - Quick buttons (100 → 10,000,000)
+//   - Quick buttons (100 -> 10,000,000)
 //   - Deposit all / Withdraw all
 //   - Localized texts via helper L
-//   - Crash-safe (null checks, reflection guarded)
+//   - Ultra crash-safe (strict context gate + delays + guarded callbacks)
 // ============================================
 
 using System;
+using System.Globalization;
 using System.Reflection;
+using System.Threading.Tasks;
 using BanksOfCalradia.Source.Core;
 using BanksOfCalradia.Source.Systems;
 using TaleWorlds.CampaignSystem;
@@ -32,38 +34,87 @@ namespace BanksOfCalradia.Source.UI
         // Quick deposit / withdraw fixed values
         private static readonly int[] QuickValues = { 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000 };
 
+        private static bool _registered;
+
         // ============================================================
-        // Helpers de contexto
+        // Context Hardening
         // ============================================================
-        private static bool TryGetContext(
+
+        private static bool IsInValidTown()
+        {
+            try
+            {
+                return Campaign.Current != null
+                       && Hero.MainHero != null
+                       && Settlement.CurrentSettlement?.Town != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryGetStrictContext(
             BankCampaignBehavior behavior,
             out Hero hero,
             out Settlement settlement,
+            out Town town,
+            out BankStorage storage,
             out string playerId,
             out string townId)
         {
-            hero = Hero.MainHero;
-            settlement = Settlement.CurrentSettlement;
+            hero = null;
+            settlement = null;
+            town = null;
+            storage = null;
+            playerId = null;
+            townId = null;
 
-            if (behavior == null || behavior.GetStorage() == null)
+            try
             {
-                ShowWarn(L.S("savings_err_storage", "[BanksOfCalradia] Bank storage unavailable."));
-                playerId = "player";
-                townId = "town";
+                if (behavior == null)
+                    return false;
+
+                storage = behavior.GetStorage();
+                if (storage == null)
+                    return false;
+
+                hero = Hero.MainHero;
+                if (hero == null)
+                    return false;
+
+                settlement = Settlement.CurrentSettlement;
+                town = settlement?.Town;
+                if (town == null)
+                    return false;
+
+                playerId = hero.StringId;
+                townId = settlement.StringId;
+
+                if (string.IsNullOrEmpty(playerId) || string.IsNullOrEmpty(townId))
+                    return false;
+
+                return true;
+            }
+            catch
+            {
                 return false;
             }
+        }
 
-            if (hero == null)
+        private static async Task WaitUiAsync(MenuCallbackArgs args)
+        {
+            try
             {
-                ShowWarn(L.S("savings_err_hero", "[BanksOfCalradia] Player not found."));
-                playerId = "player";
-                townId = "town";
-                return false;
-            }
+                await Task.Delay(80);
 
-            playerId = hero.StringId;
-            townId = settlement?.StringId ?? "town";
-            return true;
+                if (args?.MenuContext == null || args.MenuContext.GameMenu == null)
+                    await Task.Delay(120);
+            }
+            catch
+            {
+                // silent
+            }
         }
 
         private static void SafeSetMenuText(MenuCallbackArgs args, TextObject text)
@@ -71,27 +122,15 @@ namespace BanksOfCalradia.Source.UI
             try
             {
                 var menu = args?.MenuContext?.GameMenu;
-                if (menu == null) return;
+                if (menu == null)
+                    return;
 
                 var field = typeof(GameMenu).GetField("_defaultText", BindingFlags.NonPublic | BindingFlags.Instance);
                 field?.SetValue(menu, text);
             }
             catch
             {
-                // silencioso
-            }
-        }
-
-        private static void SafeSwitchToMenu(string menuId)
-        {
-            try
-            {
-                if (!string.IsNullOrEmpty(menuId))
-                    GameMenu.SwitchToMenu(menuId);
-            }
-            catch
-            {
-                // silencioso
+                // silent
             }
         }
 
@@ -100,140 +139,170 @@ namespace BanksOfCalradia.Source.UI
             try { behavior?.SyncBankData(); } catch { }
         }
 
+        private static void Warn(string msg)
+        {
+            try
+            {
+                InformationManager.DisplayMessage(new InformationMessage(msg, Color.FromUint(0xFFFF6666)));
+            }
+            catch
+            {
+                // silent
+            }
+        }
+
+        private static void InfoGold(string msg)
+        {
+            try
+            {
+                InformationManager.DisplayMessage(new InformationMessage(msg, Color.FromUint(BankUtils.UiGold)));
+            }
+            catch
+            {
+                // silent
+            }
+        }
+
         // ============================================================
         // Dynamic withdraw fee (Reversed Risk Curve – Balanced Final)
         // ============================================================
         private static float GetDynamicWithdrawFee(Settlement settlement)
         {
             if (settlement?.Town == null)
-                return 0.01f; // fallback reduzido: 1 %
+                return 0.01f; // fallback: 1%
 
             float prosperity = settlement.Town.Prosperity;
             float security = settlement.Town.Security;
             float loyalty = settlement.Town.Loyalty;
 
-            // Agora muito menos punitivo:
             const float MinFee = 0.0000f;   // 0%
-            const float MaxFee = 0.0500f;   // antes 10% → agora 5%
+            const float MaxFee = 0.0500f;   // 5%
             const float ProsperityRef = 10000f;
-            const float RiskGamma = 1.30f;  // mantém suavização comportamental
+            const float RiskGamma = 1.30f;
 
-            // Pesos iguais
             const float wP = 0.55f;
             const float wS = 0.30f;
             const float wL = 0.15f;
 
-            // Riscos base
             float pRisk = 1f - MathF.Clamp(prosperity / ProsperityRef, 0f, 1f);
             float sRisk = MathF.Clamp((100f - security) / 100f, 0f, 1f);
             float lRisk = MathF.Clamp((100f - loyalty) / 100f, 0f, 1f);
 
-            // Soma ponderada
             float combined = (pRisk * wP) + (sRisk * wS) + (lRisk * wL);
-
-            // Curva gamma
             float curved = MathF.Pow(MathF.Clamp(combined, 0f, 1f), RiskGamma);
 
-            // Taxa bruta
             float fee = MinFee + (MaxFee - MinFee) * curved;
 
-            // Bônus por estabilidade agora mais forte
             float stability = 1f - combined;
-            float rebate = MathF.Pow(stability, 4f) * 0.004f; // dobro do desconto original
+            float rebate = MathF.Pow(stability, 4f) * 0.004f;
             fee = MathF.Max(MinFee, fee - rebate);
 
-            // Limite final
             return MathF.Clamp(fee, MinFee, MaxFee);
         }
 
-
-        // ============================================
+        // ============================================================
         // Register savings menus
-        // ============================================
-        private static bool _registered;
+        // ============================================================
         public static void RegisterMenu(CampaignGameStarter starter, BankCampaignBehavior behavior)
         {
-
             if (_registered)
                 return;
             _registered = true;
-            // Main savings menu
+
             starter.AddGameMenu(
                 "bank_savings",
                 L.S("savings_menu_loading", "Loading savings data..."),
-                args => OnMenuInit(args, behavior)
+                args => OnMenuInit_Main(args, behavior)
             );
 
-            // Main options
-            starter.AddGameMenuOption("bank_savings", "savings_deposit",
+            starter.AddGameMenuOption(
+                "bank_savings",
+                "savings_deposit",
                 L.S("savings_menu_deposit", "Deposit Money"),
-                args => { args.optionLeaveType = GameMenuOption.LeaveType.Submenu; return true; },
-                _ => BankSafeUI.Switch("bank_savings_deposit"), false);
+                args =>
+                {
+                    args.optionLeaveType = GameMenuOption.LeaveType.Submenu;
+                    return IsInValidTown();
+                },
+                _ =>
+                {
+                    try { BankSafeUI.Switch("bank_savings_deposit"); } catch { }
+                },
+                false
+            );
 
-            starter.AddGameMenuOption("bank_savings", "savings_withdraw",
+            starter.AddGameMenuOption(
+                "bank_savings",
+                "savings_withdraw",
                 L.S("savings_menu_withdraw", "Withdraw Money"),
-                args => { args.optionLeaveType = GameMenuOption.LeaveType.Submenu; return true; },
-                _ => BankSafeUI.Switch("bank_savings_withdraw"), false);
+                args =>
+                {
+                    args.optionLeaveType = GameMenuOption.LeaveType.Submenu;
+                    return IsInValidTown();
+                },
+                _ =>
+                {
+                    try { BankSafeUI.Switch("bank_savings_withdraw"); } catch { }
+                },
+                false
+            );
 
-            starter.AddGameMenuOption("bank_savings", "savings_toggle_reinvest",
+            starter.AddGameMenuOption(
+                "bank_savings",
+                "savings_toggle_reinvest",
                 L.S("savings_toggle_reinvest", "Toggle Auto-Reinvestment"),
-                args => { args.optionLeaveType = GameMenuOption.LeaveType.Continue; return true; },
-                _ => ToggleAutoReinvest(behavior), false);
+                args =>
+                {
+                    args.optionLeaveType = GameMenuOption.LeaveType.Continue;
+                    return IsInValidTown();
+                },
+                _ =>
+                {
+                    try { ToggleAutoReinvest(behavior); } catch { }
+                },
+                false
+            );
 
-            starter.AddGameMenuOption("bank_savings", "savings_back",
+            starter.AddGameMenuOption(
+                "bank_savings",
+                "savings_back",
                 L.S("savings_menu_back", "Return to Bank"),
-                args => { args.optionLeaveType = GameMenuOption.LeaveType.Leave; return true; },
-                _ => BankSafeUI.Switch("bank_menu"), true);
+                args =>
+                {
+                    args.optionLeaveType = GameMenuOption.LeaveType.Leave;
+                    return true;
+                },
+                _ =>
+                {
+                    try { BankSafeUI.Switch("bank_menu"); } catch { }
+                },
+                true
+            );
 
             RegisterDepositMenu(starter, behavior);
             RegisterWithdrawMenu(starter, behavior);
         }
 
-        // NOTA PESSOAL MINHA, CHAT GPT, SE VOCê ESTIVER LENDO ISSO, E EU REPORTAR QUE O BUG DE CRASH ESTÁ OCORRENDO AO ACESSAR PARA DEPOSITAR OU PARA SACAR, SIGNIFICA QUE O MOTIVO PROVAVELMELMENTE É  ESSA MERDA DE DELAY QUE, EU POR PREGUIÇA, NÃO COLOQUEI NOS SUBMENUS DE SAQUE E DEPOSITO
-        // ============================================
-        // Main savings menu (HARDENED VERSION)
-        // ============================================
-        private static async void OnMenuInit(MenuCallbackArgs args, BankCampaignBehavior behavior)
+        // ============================================================
+        // Main savings menu (Ultra Safe)
+        // ============================================================
+        private static async void OnMenuInit_Main(MenuCallbackArgs args, BankCampaignBehavior behavior)
         {
             try
             {
-                // 🛡️ Delay obrigatório: garante que o menu realmente exista
-                await System.Threading.Tasks.Task.Delay(80);
+                await WaitUiAsync(args);
 
-                // Se o menu ainda não existe, aguarda
-                if (args.MenuContext == null || args.MenuContext.GameMenu == null)
-                    await System.Threading.Tasks.Task.Delay(120);
-
-                // 🚨 Proteção obrigatória — hero e cidade REAL devem existir
-                var settlement = Settlement.CurrentSettlement;
-                var hero = Hero.MainHero;
-
-                if (settlement?.Town == null || hero == null)
+                if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
                 {
                     args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
-                    SafeSetMenuText(
-                        args,
-                        L.T("savings_need_town", "You must be inside a town to access savings.")
-                    );
+                    SafeSetMenuText(args, L.T("savings_need_town", "You must be inside a town to access savings."));
                     return;
                 }
 
-                // ⚠️ Depois que hero/cidade existem, aplicamos TryGetContext
-                if (!TryGetContext(behavior, out hero, out settlement, out var playerId, out var townId))
-                {
-                    args.MenuTitle = L.T("savings_err_title", "Savings (Error)");
-                    SafeSetMenuText(
-                        args,
-                        L.T("savings_err_ctx", "[BanksOfCalradia] Context not available.")
-                    );
-                    return;
-                }
+                string townName = settlement.Name?.ToString() ?? L.S("default_city", "City");
+                float prosperity = town.Prosperity;
 
-                // A partir daqui é 100% seguro usar settlement.Town e hero
-                string townName = settlement.Name.ToString();
-                float prosperity = settlement.Town.Prosperity;
-
-                // 💹 Curva Calibrada Premium (lógica original)
+                // Interest model (original logic preserved)
                 const float prosperidadeBase = 5000f;
                 const float prosperidadeAlta = 6000f;
                 const float prosperidadeMax = 10000f;
@@ -261,20 +330,34 @@ namespace BanksOfCalradia.Source.UI
                 taxaAnual = MathF.Round(taxaAnual, 2);
                 float taxaDiaria = taxaAnual / CICLO_DIAS;
 
-                // taxa de saque
                 float withdrawRate = GetDynamicWithdrawFee(settlement);
 
-                var acct = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
-                if (acct.Amount < 0) acct.Amount = 0;
+                var acct = storage.GetOrCreateSavings(playerId, townId);
+
+                // FALHA CRÍTICA DE PREWARM / RACE → PREVINE CRASH
+                if (acct == null)
+                {
+                    args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
+                    SafeSetMenuText(args, L.T("savings_prewarm_fail",
+                        "The bank system is still initializing.\n\nPlease exit the menu and try again in a moment."));
+                    return;
+                }
+
+                if (acct.Amount < 0)
+                    acct.Amount = 0;
+
                 double balance = acct.Amount;
+
 
                 string reinvestStatus = acct.AutoReinvest
                     ? L.S("savings_reinvest_on", "Enabled")
                     : L.S("savings_reinvest_off", "Disabled");
 
-                // Corpo do menu
+                var title = L.T("savings_menu_title", "Savings - Bank of {CITY}");
+                title.SetTextVariable("CITY", townName);
+
                 var body = L.T("savings_menu_body",
-                    "Savings — Bank of {CITY}\n\n" +
+                    "Savings - Bank of {CITY}\n\n" +
                     "• Annual interest rate: {INTEREST_AA}\n" +
                     "• Daily interest rate: {INTEREST_AD}\n" +
                     "• Local prosperity: {PROSPERITY}\n" +
@@ -290,82 +373,35 @@ namespace BanksOfCalradia.Source.UI
                 body.SetTextVariable("BALANCE", BankUtils.FmtDenars(balance));
                 body.SetTextVariable("REINVEST", reinvestStatus);
 
-                args.MenuTitle = body;
+                args.MenuTitle = title;
                 SafeSetMenuText(args, body);
             }
             catch (Exception e)
             {
-                InformationManager.DisplayMessage(new InformationMessage(
-                    L.S("savings_menu_error", "[BanksOfCalradia] Error loading savings menu: ") + e.Message,
-                    Color.FromUint(0xFFFF3333)
-                ));
+                try
+                {
+                    InformationManager.DisplayMessage(new InformationMessage(
+                        L.S("savings_menu_error", "[BanksOfCalradia] Error loading savings menu: ") + e.Message,
+                        Color.FromUint(0xFFFF3333)
+                    ));
+                }
+                catch
+                {
+                    // silent
+                }
             }
         }
 
-
-        // ============================================
-        // Deposit submenu (HARDENED VERSION)
-        // ============================================
+        // ============================================================
+        // Deposit submenu (Ultra Safe)
+        // ============================================================
         private static void RegisterDepositMenu(CampaignGameStarter starter, BankCampaignBehavior behavior)
         {
             starter.AddGameMenu(
                 "bank_savings_deposit",
                 L.S("savings_deposit_loading", "Loading..."),
-                async args =>
-                {
-                    // 🛡️ Delay para garantir GameMenuContext
-                    await System.Threading.Tasks.Task.Delay(80);
-
-                    if (args.MenuContext == null || args.MenuContext.GameMenu == null)
-                        await System.Threading.Tasks.Task.Delay(120);
-
-                    // 🚨 Proteção obrigatória: hero e cidade REAL devem existir
-                    var settlement = Settlement.CurrentSettlement;
-                    var hero = Hero.MainHero;
-
-                    if (settlement?.Town == null || hero == null)
-                    {
-                        args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
-                        SafeSetMenuText(args,
-                            L.T("ctx_lost", "Context lost. Please reopen the bank.")
-                        );
-                        return;
-                    }
-
-                    // ⚠️ Depois que o ambiente básico está OK, podemos chamar TryGetContext
-                    if (!TryGetContext(behavior, out hero, out settlement, out var playerId, out var townId))
-                    {
-                        args.MenuTitle = L.T("savings_err_title", "Savings (Error)");
-                        SafeSetMenuText(args,
-                            L.T("savings_err_ctx", "[BanksOfCalradia] Context not available.")
-                        );
-                        return;
-                    }
-
-                    // 100% seguro usar storage + savings
-                    var savings = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
-                    if (savings.Amount < 0) savings.Amount = 0;
-
-                    double balance = savings.Amount;
-
-                    // Título
-                    var title = L.T("savings_deposit_title",
-                        "Deposit to Savings — Bank balance: {BALANCE}");
-                    title.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(balance));
-                    args.MenuTitle = title;
-
-                    // Corpo
-                    var body = L.T("savings_deposit_body",
-                        "Select a fixed amount to deposit or use 'Custom amount...'.\n\n" +
-                        "Current bank balance: {BALANCE}");
-                    body.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(balance));
-                    SafeSetMenuText(args, body);
-                }
+                args => OnMenuInit_Deposit(args, behavior)
             );
-
-            // ======================
-            // QUICK DEPOSIT BUTTONS
-            // ======================
 
             foreach (int val in QuickValues)
             {
@@ -377,18 +413,16 @@ namespace BanksOfCalradia.Source.UI
                     L.S("savings_deposit_fixed", "Deposit") + $" {amount:N0}",
                     a =>
                     {
-                        // Proteção de click precoce
                         a.optionLeaveType = GameMenuOption.LeaveType.Continue;
-                        return Settlement.CurrentSettlement?.Town != null;
+                        return IsInValidTown();
                     },
-                    _ => TryDepositFixed(behavior, amount),
+                    _ =>
+                    {
+                        try { TryDepositFixed(behavior, amount); } catch { }
+                    },
                     false
                 );
             }
-
-            // ======================
-            // DEPOSIT ALL
-            // ======================
 
             starter.AddGameMenuOption(
                 "bank_savings_deposit",
@@ -397,15 +431,14 @@ namespace BanksOfCalradia.Source.UI
                 a =>
                 {
                     a.optionLeaveType = GameMenuOption.LeaveType.Continue;
-                    return Settlement.CurrentSettlement?.Town != null;
+                    return IsInValidTown();
                 },
-                _ => TryDepositAll(behavior),
+                _ =>
+                {
+                    try { TryDepositAll(behavior); } catch { }
+                },
                 false
             );
-
-            // ======================
-            // CUSTOM DEPOSIT
-            // ======================
 
             starter.AddGameMenuOption(
                 "bank_savings_deposit",
@@ -414,15 +447,14 @@ namespace BanksOfCalradia.Source.UI
                 a =>
                 {
                     a.optionLeaveType = GameMenuOption.LeaveType.Continue;
-                    return Settlement.CurrentSettlement?.Town != null;
+                    return IsInValidTown();
                 },
-                _ => PromptCustomDeposit(behavior),
+                _ =>
+                {
+                    try { PromptCustomDeposit(behavior); } catch { }
+                },
                 false
             );
-
-            // ======================
-            // RETURN
-            // ======================
 
             starter.AddGameMenuOption(
                 "bank_savings_deposit",
@@ -433,351 +465,661 @@ namespace BanksOfCalradia.Source.UI
                     a.optionLeaveType = GameMenuOption.LeaveType.Leave;
                     return true;
                 },
-                _ => BankSafeUI.Switch("bank_savings"),
+                _ =>
+                {
+                    try { BankSafeUI.Switch("bank_savings"); } catch { }
+                },
                 true
             );
         }
 
+        private static async void OnMenuInit_Deposit(MenuCallbackArgs args, BankCampaignBehavior behavior)
+        {
+            try
+            {
+                await WaitUiAsync(args);
+
+                if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
+                {
+                    args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
+                    SafeSetMenuText(args, L.T("ctx_lost", "Context lost. Please reopen the bank."));
+                    return;
+                }
+
+                var savings = storage.GetOrCreateSavings(playerId, townId);
+
+                if (savings == null)
+                {
+                    args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
+                    SafeSetMenuText(args, L.T("ctx_lost",
+                        "The bank system is still initializing.\n\nPlease reopen this menu shortly."));
+                    return;
+                }
+
+                if (savings.Amount < 0)
+                    savings.Amount = 0;
+
+                double balance = savings.Amount;
+
+
+                var title = L.T("savings_deposit_title", "Deposit to Savings - Bank balance: {BALANCE}");
+                title.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(balance));
+                args.MenuTitle = title;
+
+                var body = L.T("savings_deposit_body",
+                    "Select a fixed amount to deposit or use 'Custom amount...'.\n\n" +
+                    "Current bank balance: {BALANCE}");
+                body.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(balance));
+                SafeSetMenuText(args, body);
+            }
+            catch
+            {
+                args.MenuTitle = L.T("savings_err_title", "Savings (Error)");
+                SafeSetMenuText(args, L.T("savings_err_ctx", "[BanksOfCalradia] Context not available."));
+            }
+        }
 
         private static void TryDepositAll(BankCampaignBehavior behavior)
         {
-            if (!TryGetContext(behavior, out var hero, out var s, out var playerId, out var townId))
-                return;
-
-            double amount = hero.Gold;
-            if (amount <= 0)
+            try
             {
-                ShowWarn(L.S("savings_no_gold", "You do not have enough gold."));
-                return;
+                if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
+                    return;
+
+                double amount = hero.Gold;
+                if (amount <= 0)
+                {
+                    Warn(L.S("savings_no_gold", "You do not have enough gold."));
+                    return;
+                }
+
+                var acct = storage.GetOrCreateSavings(playerId, townId);
+
+                int delta = (int)Math.Floor(amount);
+                if (delta <= 0)
+                {
+                    Warn(L.S("savings_no_gold", "You do not have enough gold."));
+                    return;
+                }
+
+                hero.ChangeHeroGold(-delta);
+                acct.Amount += amount;
+                if (acct.Amount < 0) acct.Amount = 0;
+
+                SafeSync(behavior);
+
+                var msg = L.T("savings_deposit_done", "Deposit of {AMOUNT} completed. New balance: {BALANCE}.");
+                msg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(amount));
+                msg.SetTextVariable("BALANCE", BankUtils.FmtDenars(acct.Amount));
+
+                InfoGold(msg.ToString());
+                BankSafeUI.Switch("bank_savings_deposit");
             }
-
-            var acct = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
-            hero.ChangeHeroGold(-(int)Math.Floor(amount));
-            acct.Amount += amount;
-            if (acct.Amount < 0) acct.Amount = 0;
-            SafeSync(behavior);
-
-            var msg = L.T("savings_deposit_done", "Deposit of {AMOUNT} completed. New balance: {BALANCE}.");
-            msg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(amount));
-            msg.SetTextVariable("BALANCE", BankUtils.FmtDenars(acct.Amount));
-
-            InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(BankUtils.UiGold)));
-            BankSafeUI.Switch("bank_savings_deposit");
-
+            catch
+            {
+                // silent
+            }
         }
 
         private static void TryDepositFixed(BankCampaignBehavior behavior, int amount)
         {
-            if (!TryGetContext(behavior, out var hero, out var s, out var playerId, out var townId))
-                return;
-
-            if (amount > hero.Gold)
-                amount = hero.Gold;
-            if (amount <= 0)
+            try
             {
-                ShowWarn(L.S("savings_no_gold", "You do not have enough gold."));
-                return;
+                if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
+                    return;
+
+                int final = amount;
+                if (final > hero.Gold)
+                    final = hero.Gold;
+
+                if (final <= 0)
+                {
+                    Warn(L.S("savings_no_gold", "You do not have enough gold."));
+                    return;
+                }
+
+                var acct = storage.GetOrCreateSavings(playerId, townId);
+
+                hero.ChangeHeroGold(-final);
+                acct.Amount += final;
+                if (acct.Amount < 0) acct.Amount = 0;
+
+                SafeSync(behavior);
+
+                var msg = L.T("savings_deposit_done", "Deposit of {AMOUNT} completed. New balance: {BALANCE}.");
+                msg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(final));
+                msg.SetTextVariable("BALANCE", BankUtils.FmtDenars(acct.Amount));
+
+                InfoGold(msg.ToString());
+                BankSafeUI.Switch("bank_savings_deposit");
             }
-
-            var acct = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
-            hero.ChangeHeroGold(-amount);
-            acct.Amount += amount;
-            if (acct.Amount < 0) acct.Amount = 0;
-            SafeSync(behavior);
-
-            var msg = L.T("savings_deposit_done", "Deposit of {AMOUNT} completed. New balance: {BALANCE}.");
-            msg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(amount));
-            msg.SetTextVariable("BALANCE", BankUtils.FmtDenars(acct.Amount));
-
-            InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(BankUtils.UiGold)));
-            BankSafeUI.Switch("bank_savings_deposit");
-
+            catch
+            {
+                // silent
+            }
         }
 
         private static void PromptCustomDeposit(BankCampaignBehavior behavior)
         {
-            if (!TryGetContext(behavior, out var hero, out _, out _, out _))
-                return;
+            try
+            {
+                if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
+                    return;
 
-            InformationManager.ShowTextInquiry(new TextInquiryData(
-                L.S("savings_deposit_popup_title", "Custom Deposit"),
-                L.S("savings_deposit_popup_desc", "Enter the amount to deposit:"),
-                true, true,
-                L.S("popup_confirm", "Confirm"),
-                L.S("popup_cancel", "Cancel"),
-                input =>
-                {
-                    if (!TryGetContext(behavior, out var h2, out var s2, out var playerId2, out var townId2))
-                        return;
-
-                    if (!TryParsePositiveDouble(input, out double amount))
+                InformationManager.ShowTextInquiry(new TextInquiryData(
+                    L.S("savings_deposit_popup_title", "Custom Deposit"),
+                    L.S("savings_deposit_popup_desc", "Enter the amount to deposit:"),
+                    true, true,
+                    L.S("popup_confirm", "Confirm"),
+                    L.S("popup_cancel", "Cancel"),
+                    input =>
                     {
-                        ShowWarn(L.S("savings_invalid_value", "Invalid value."));
-                        return;
-                    }
+                        try
+                        {
+                            if (!TryGetStrictContext(behavior, out var h2, out var s2, out var t2, out var st2, out var pid2, out var tid2))
+                                return;
 
-                    if (amount > h2.Gold)
-                        amount = h2.Gold;
-                    if (amount <= 0)
-                    {
-                        ShowWarn(L.S("savings_no_gold", "You do not have enough gold."));
-                        return;
-                    }
+                            if (!TryParsePositiveAmount(input, out double amount))
+                            {
+                                Warn(L.S("savings_invalid_value", "Invalid value."));
+                                return;
+                            }
 
-                    var acct = behavior.GetStorage().GetOrCreateSavings(playerId2, townId2);
-                    h2.ChangeHeroGold(-(int)Math.Floor(amount));
-                    acct.Amount += amount;
-                    if (acct.Amount < 0) acct.Amount = 0;
-                    SafeSync(behavior);
+                            if (amount > h2.Gold)
+                                amount = h2.Gold;
 
-                    var msg = L.T("savings_deposit_done", "Deposit of {AMOUNT} completed. Current bank balance: {BALANCE}.");
-                    msg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(amount));
-                    msg.SetTextVariable("BALANCE", BankUtils.FmtDenars(acct.Amount));
+                            if (amount <= 0.0d)
+                            {
+                                Warn(L.S("savings_no_gold", "You do not have enough gold."));
+                                return;
+                            }
 
-                    InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(BankUtils.UiGold)));
-                    BankSafeUI.Switch("bank_savings_deposit");
-                },
-                () => { }
-            ));
+                            int delta = (int)Math.Floor(amount);
+                            if (delta <= 0)
+                            {
+                                Warn(L.S("savings_no_gold", "You do not have enough gold."));
+                                return;
+                            }
+
+                            var acct2 = st2.GetOrCreateSavings(pid2, tid2);
+
+                            h2.ChangeHeroGold(-delta);
+                            acct2.Amount += amount;
+                            if (acct2.Amount < 0) acct2.Amount = 0;
+
+                            SafeSync(behavior);
+
+                            var msg = L.T("savings_deposit_done", "Deposit of {AMOUNT} completed. Current bank balance: {BALANCE}.");
+                            msg.SetTextVariable("AMOUNT", BankUtils.FmtDenars(amount));
+                            msg.SetTextVariable("BALANCE", BankUtils.FmtDenars(acct2.Amount));
+
+                            InfoGold(msg.ToString());
+                            BankSafeUI.Switch("bank_savings_deposit");
+                        }
+                        catch
+                        {
+                            // silent
+                        }
+                    },
+                    () => { }
+                ));
+            }
+            catch
+            {
+                // silent
+            }
         }
 
-        // ============================================
+        // ============================================================
         // Toggle Auto-Reinvestment
-        // ============================================
+        // ============================================================
         private static void ToggleAutoReinvest(BankCampaignBehavior behavior)
         {
-            if (!TryGetContext(behavior, out var hero, out var settlement, out var playerId, out var townId))
-                return;
+            try
+            {
+                if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
+                    return;
 
-            var acct = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
-            acct.AutoReinvest = !acct.AutoReinvest; // alterna o estado
-            SafeSync(behavior);
+                var acct = storage.GetOrCreateSavings(playerId, townId);
+                acct.AutoReinvest = !acct.AutoReinvest;
 
-            string msg = acct.AutoReinvest
-                ? L.S("savings_reinvest_enabled",
-                      "Automatic reinvestment ENABLED — interest will now be added directly to your savings.")
-                : L.S("savings_reinvest_disabled",
-                      "Automatic reinvestment DISABLED — interest will now go to your personal gold.");
+                SafeSync(behavior);
 
-            InformationManager.DisplayMessage(new InformationMessage(
-                msg,
-                Color.FromUint(acct.AutoReinvest ? BankUtils.UiGold : 0xFFFF6666)
-            ));
+                string msg = acct.AutoReinvest
+                    ? L.S("savings_reinvest_enabled", "Automatic reinvestment ENABLED - interest will now be added directly to your savings.")
+                    : L.S("savings_reinvest_disabled", "Automatic reinvestment DISABLED - interest will now go to your personal gold.");
 
-            // Recarrega o menu principal para atualizar o texto
-            BankSafeUI.Switch("bank_savings");
-
+                InfoGold(msg);
+                BankSafeUI.Switch("bank_savings");
+            }
+            catch
+            {
+                // silent
+            }
         }
 
-        // ============================================
-        // Withdraw submenu
-        // ============================================
+        // ============================================================
+        // Withdraw submenu (Ultra Safe + Delay)
+        // ============================================================
         private static void RegisterWithdrawMenu(CampaignGameStarter starter, BankCampaignBehavior behavior)
         {
             starter.AddGameMenu(
                 "bank_savings_withdraw",
                 L.S("savings_withdraw_loading", "Loading..."),
-                args =>
-                {
-                    if (!TryGetContext(behavior, out var hero, out var s, out var playerId, out var townId))
-                    {
-                        SafeSetMenuText(args, new TextObject(L.S("savings_err_ctx", "Context not available.")));
-                        return;
-                    }
-
-                    var acct = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
-                    double savingsBalance = acct.Amount;
-                    if (savingsBalance < 0) savingsBalance = 0;
-
-                    float feeRate = GetDynamicWithdrawFee(s);
-                    var title = L.T("savings_withdraw_title", "Withdraw from Savings — Bank balance: {BALANCE}");
-                    title.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(savingsBalance));
-
-                    args.MenuTitle = title;
-
-                    var body = L.T("savings_withdraw_body",
-                        "Select a fixed amount to withdraw or use 'Custom amount...'.\n\n" +
-                        "Current withdraw fee: {FEE}\n" +
-                        "Current bank balance: {BALANCE}");
-                    body.SetTextVariable("FEE", BankUtils.FmtPct(feeRate));
-                    body.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(savingsBalance));
-
-                    SafeSetMenuText(args, body);
-                }
+                args => OnMenuInit_Withdraw(args, behavior)
             );
 
             foreach (int val in QuickValues)
             {
                 int gross = val;
-                starter.AddGameMenuOption("bank_savings_withdraw",
+
+                starter.AddGameMenuOption(
+                    "bank_savings_withdraw",
                     $"withdraw_{gross}",
                     L.S("savings_withdraw_fixed", "Withdraw") + $" {gross:N0}",
-                    a => { a.optionLeaveType = GameMenuOption.LeaveType.Continue; return true; },
-                    _ => TryWithdrawFixed(behavior, gross), false);
+                    a =>
+                    {
+                        a.optionLeaveType = GameMenuOption.LeaveType.Continue;
+                        return IsInValidTown();
+                    },
+                    _ =>
+                    {
+                        try { TryWithdrawFixed(behavior, gross); } catch { }
+                    },
+                    false
+                );
             }
 
-            starter.AddGameMenuOption("bank_savings_withdraw", "withdraw_all",
+            starter.AddGameMenuOption(
+                "bank_savings_withdraw",
+                "withdraw_all",
                 L.S("savings_withdraw_all", "Withdraw all"),
-                a => { a.optionLeaveType = GameMenuOption.LeaveType.Continue; return true; },
-                _ => TryWithdrawAll(behavior), false);
+                a =>
+                {
+                    a.optionLeaveType = GameMenuOption.LeaveType.Continue;
+                    return IsInValidTown();
+                },
+                _ =>
+                {
+                    try { TryWithdrawAll(behavior); } catch { }
+                },
+                false
+            );
 
-            starter.AddGameMenuOption("bank_savings_withdraw", "withdraw_custom",
+            starter.AddGameMenuOption(
+                "bank_savings_withdraw",
+                "withdraw_custom",
                 L.S("savings_withdraw_custom", "Custom amount..."),
-                a => { a.optionLeaveType = GameMenuOption.LeaveType.Continue; return true; },
-                _ => PromptCustomWithdraw(behavior), false);
+                a =>
+                {
+                    a.optionLeaveType = GameMenuOption.LeaveType.Continue;
+                    return IsInValidTown();
+                },
+                _ =>
+                {
+                    try { PromptCustomWithdraw(behavior); } catch { }
+                },
+                false
+            );
 
-            starter.AddGameMenuOption("bank_savings_withdraw", "withdraw_back",
+            starter.AddGameMenuOption(
+                "bank_savings_withdraw",
+                "withdraw_back",
                 L.S("savings_withdraw_back", "Back to Savings"),
-                a => { a.optionLeaveType = GameMenuOption.LeaveType.Leave; return true; },
-                _ => BankSafeUI.Switch("bank_savings"), true);
+                a =>
+                {
+                    a.optionLeaveType = GameMenuOption.LeaveType.Leave;
+                    return true;
+                },
+                _ =>
+                {
+                    try { BankSafeUI.Switch("bank_savings"); } catch { }
+                },
+                true
+            );
+        }
+
+        private static async void OnMenuInit_Withdraw(MenuCallbackArgs args, BankCampaignBehavior behavior)
+        {
+            try
+            {
+                await WaitUiAsync(args);
+
+                if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
+                {
+                    args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
+                    SafeSetMenuText(args, L.T("ctx_lost", "Context lost. Please reopen the bank."));
+                    return;
+                }
+
+                var acct = storage.GetOrCreateSavings(playerId, townId);
+
+                if (acct == null)
+                {
+                    args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
+                    SafeSetMenuText(args, L.T("ctx_lost",
+                        "Savings data is not ready yet.\n\nPlease reopen the bank menu."));
+                    return;
+                }
+
+                double savingsBalance = acct.Amount;
+
+                if (savingsBalance < 0) savingsBalance = 0;
+
+                float feeRate = GetDynamicWithdrawFee(settlement);
+
+                var title = L.T("savings_withdraw_title", "Withdraw from Savings - Bank balance: {BALANCE}");
+                title.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(savingsBalance));
+                args.MenuTitle = title;
+
+                var body = L.T("savings_withdraw_body",
+                    "Select a fixed amount to withdraw or use 'Custom amount...'.\n\n" +
+                    "Current withdraw fee: {FEE}\n" +
+                    "Current bank balance: {BALANCE}");
+                body.SetTextVariable("FEE", BankUtils.FmtPct(feeRate));
+                body.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(savingsBalance));
+
+                SafeSetMenuText(args, body);
+            }
+            catch
+            {
+                args.MenuTitle = L.T("savings_err_title", "Savings (Error)");
+                SafeSetMenuText(args, L.T("savings_err_ctx", "[BanksOfCalradia] Context not available."));
+            }
+        }
+
+        // ============================================================
+        // Withdraw Operations (supports huge balances safely)
+        // ============================================================
+
+        private static double ComputeMaxGrossForGoldCap(double feeRate)
+        {
+            // We must not overflow ChangeHeroGold(int). We'll cap net <= int.MaxValue in a single transaction.
+            // gross - ceil(gross*feeRate) <= int.MaxValue
+            // Approx: gross*(1-feeRate) <= int.MaxValue
+            double keep = Math.Max(0.000001d, 1d - Math.Max(0d, Math.Min(0.95d, feeRate)));
+            return Math.Floor(int.MaxValue / keep);
         }
 
         private static void TryWithdrawAll(BankCampaignBehavior behavior)
         {
-            if (!TryGetContext(behavior, out var hero, out var s, out var playerId, out var townId))
-                return;
-
-            var acct = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
-            double gross = acct.Amount;
-            if (gross <= 0.0001d)
+            try
             {
-                ShowWarn(L.S("savings_no_balance", "Insufficient savings balance."));
-                return;
+                if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
+                    return;
+
+                var acct = storage.GetOrCreateSavings(playerId, townId);
+                double gross = acct.Amount;
+                if (gross <= 0.0001d)
+                {
+                    Warn(L.S("savings_no_balance", "Insufficient savings balance."));
+                    return;
+                }
+
+                double feeRate = GetDynamicWithdrawFee(settlement);
+                double grossCap = ComputeMaxGrossForGoldCap(feeRate);
+
+                if (gross > grossCap)
+                    gross = grossCap;
+
+                if (gross <= 0.0001d)
+                {
+                    Warn(L.S("savings_no_balance", "Insufficient savings balance."));
+                    return;
+                }
+
+                double feeVal = Math.Round(gross * feeRate, 2);
+                double net = Math.Max(0, gross - feeVal);
+
+                int netInt = (net >= int.MaxValue) ? int.MaxValue : (int)Math.Floor(net);
+                if (netInt <= 0)
+                {
+                    Warn(L.S("savings_no_balance", "Insufficient savings balance."));
+                    return;
+                }
+
+                acct.Amount = Math.Max(0d, acct.Amount - gross);
+                if (acct.Amount < 0.0001d) acct.Amount = 0d;
+
+                hero.ChangeHeroGold(netInt);
+                SafeSync(behavior);
+
+                var msg = L.T("savings_withdraw_done_all",
+                    "Withdraw of {GROSS} completed (Fee: {FEE} -> {FEEVAL}). Received: {NET}. Balance: {BAL}.");
+                msg.SetTextVariable("GROSS", BankUtils.FmtDenars(gross));
+                msg.SetTextVariable("FEE", BankUtils.FmtPct((float)feeRate));
+                msg.SetTextVariable("FEEVAL", BankUtils.FmtDenars(feeVal));
+                msg.SetTextVariable("NET", BankUtils.FmtDenars(netInt));
+                msg.SetTextVariable("BAL", BankUtils.FmtDenars(acct.Amount));
+
+                InfoGold(msg.ToString());
+                BankSafeUI.Switch("bank_savings_withdraw");
             }
-
-            double feeRate = GetDynamicWithdrawFee(s);
-            double feeVal = Math.Round(gross * feeRate, 2);
-            double net = Math.Max(0, gross - feeVal);
-
-            // zera a conta completamente após o saque
-            acct.Amount = 0d;
-            hero.ChangeHeroGold((int)Math.Floor(net));
-            SafeSync(behavior);
-
-
-            var msg = L.T("savings_withdraw_done_all",
-                "Withdraw of {GROSS} completed (Fee: {FEE} → {FEEVAL}). Received: {NET}. Balance: {BAL}.");
-            msg.SetTextVariable("GROSS", BankUtils.FmtDenars(gross));
-            msg.SetTextVariable("FEE", BankUtils.FmtPct((float)feeRate));
-            msg.SetTextVariable("FEEVAL", BankUtils.FmtDenars(feeVal));
-            msg.SetTextVariable("NET", BankUtils.FmtDenars(net));
-            msg.SetTextVariable("BAL", BankUtils.FmtDenars(acct.Amount));
-
-            InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(BankUtils.UiGold)));
-            BankSafeUI.Switch("bank_savings_withdraw");
-
+            catch
+            {
+                // silent
+            }
         }
 
         private static void TryWithdrawFixed(BankCampaignBehavior behavior, int gross)
         {
-            if (!TryGetContext(behavior, out var hero, out var s, out var playerId, out var townId))
-                return;
-
-            var acct = behavior.GetStorage().GetOrCreateSavings(playerId, townId);
-            double grossVal = gross;
-            if (grossVal > acct.Amount)
-                grossVal = Math.Floor(acct.Amount);
-
-            if (grossVal <= 0)
+            try
             {
-                ShowWarn(L.S("savings_no_balance", "Insufficient savings balance."));
-                return;
+                if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
+                    return;
+
+                var acct = storage.GetOrCreateSavings(playerId, townId);
+
+                double grossVal = gross;
+                if (grossVal > acct.Amount)
+                    grossVal = Math.Floor(acct.Amount);
+
+                if (grossVal <= 0)
+                {
+                    Warn(L.S("savings_no_balance", "Insufficient savings balance."));
+                    return;
+                }
+
+                double feeRate = GetDynamicWithdrawFee(settlement);
+                double grossCap = ComputeMaxGrossForGoldCap(feeRate);
+
+                if (grossVal > grossCap)
+                    grossVal = grossCap;
+
+                if (grossVal <= 0)
+                {
+                    Warn(L.S("savings_no_balance", "Insufficient savings balance."));
+                    return;
+                }
+
+                double feeVal = Math.Ceiling(grossVal * feeRate);
+                double net = Math.Max(0, grossVal - feeVal);
+
+                int netInt = (net >= int.MaxValue) ? int.MaxValue : (int)Math.Floor(net);
+                if (netInt <= 0)
+                {
+                    Warn(L.S("savings_no_balance", "Insufficient savings balance."));
+                    return;
+                }
+
+                acct.Amount = Math.Max(0d, acct.Amount - grossVal);
+                if (acct.Amount < 0.0001d) acct.Amount = 0d;
+
+                hero.ChangeHeroGold(netInt);
+                SafeSync(behavior);
+
+                var msg = L.T("savings_withdraw_done_fixed",
+                    "Withdraw of {GROSS} completed (Fee: {FEE} -> {FEEVAL}). Received: {NET}. Balance: {BAL}.");
+                msg.SetTextVariable("GROSS", BankUtils.FmtDenars(grossVal));
+                msg.SetTextVariable("FEE", BankUtils.FmtPct((float)feeRate));
+                msg.SetTextVariable("FEEVAL", BankUtils.FmtDenars(feeVal));
+                msg.SetTextVariable("NET", BankUtils.FmtDenars(netInt));
+                msg.SetTextVariable("BAL", BankUtils.FmtDenars(acct.Amount));
+
+                InfoGold(msg.ToString());
+                BankSafeUI.Switch("bank_savings_withdraw");
             }
-
-            double feeRate = GetDynamicWithdrawFee(s);
-            double feeVal = Math.Ceiling(grossVal * feeRate);
-            double net = Math.Max(0, grossVal - feeVal);
-
-            acct.Amount = Math.Max(0d, acct.Amount - grossVal);
-            if (acct.Amount < 0.0001d) acct.Amount = 0d;
-
-            hero.ChangeHeroGold((int)Math.Floor(net));
-            SafeSync(behavior);
-
-            var msg = L.T("savings_withdraw_done_fixed",
-                "Withdraw of {GROSS} completed (Fee: {FEE} → {FEEVAL}). Received: {NET}. Balance: {BAL}.");
-            msg.SetTextVariable("GROSS", BankUtils.FmtDenars(grossVal));
-            msg.SetTextVariable("FEE", BankUtils.FmtPct((float)feeRate));
-            msg.SetTextVariable("FEEVAL", BankUtils.FmtDenars(feeVal));
-            msg.SetTextVariable("NET", BankUtils.FmtDenars(net));
-            msg.SetTextVariable("BAL", BankUtils.FmtDenars(acct.Amount));
-
-            InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(BankUtils.UiGold)));
-            BankSafeUI.Switch("bank_savings_withdraw");
-
+            catch
+            {
+                // silent
+            }
         }
 
         private static void PromptCustomWithdraw(BankCampaignBehavior behavior)
         {
-            if (!TryGetContext(behavior, out var hero, out _, out _, out _))
-                return;
+            try
+            {
+                if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
+                    return;
 
-            InformationManager.ShowTextInquiry(new TextInquiryData(
-                L.S("savings_withdraw_popup_title", "Custom Withdraw"),
-                L.S("savings_withdraw_popup_desc", "Enter the amount to withdraw:"),
-                true, true,
-                L.S("popup_confirm", "Confirm"),
-                L.S("popup_cancel", "Cancel"),
-                input =>
-                {
-                    if (!TryGetContext(behavior, out var h2, out var s2, out var playerId2, out var townId2))
-                        return;
-
-                    if (!TryParsePositiveDouble(input, out double gross))
+                InformationManager.ShowTextInquiry(new TextInquiryData(
+                    L.S("savings_withdraw_popup_title", "Custom Withdraw"),
+                    L.S("savings_withdraw_popup_desc", "Enter the amount to withdraw:"),
+                    true, true,
+                    L.S("popup_confirm", "Confirm"),
+                    L.S("popup_cancel", "Cancel"),
+                    input =>
                     {
-                        ShowWarn(L.S("savings_invalid_value", "Invalid value."));
-                        return;
-                    }
+                        try
+                        {
+                            if (!TryGetStrictContext(behavior, out var h2, out var s2, out var t2, out var st2, out var pid2, out var tid2))
+                                return;
 
-                    var acct = behavior.GetStorage().GetOrCreateSavings(playerId2, townId2);
-                    if (gross > acct.Amount)
-                        gross = Math.Floor(acct.Amount);
+                            if (!TryParsePositiveAmount(input, out double gross))
+                            {
+                                Warn(L.S("savings_invalid_value", "Invalid value."));
+                                return;
+                            }
 
-                    if (gross <= 0)
-                    {
-                        ShowWarn(L.S("savings_no_balance", "Insufficient savings balance."));
-                        return;
-                    }
+                            var acct = st2.GetOrCreateSavings(pid2, tid2);
 
-                    double feeRate = GetDynamicWithdrawFee(s2);
-                    double feeVal = Math.Ceiling(gross * feeRate);
-                    double net = Math.Max(0, gross - feeVal);
+                            if (gross > acct.Amount)
+                                gross = Math.Floor(acct.Amount);
 
-                    acct.Amount -= gross;
-                    if (acct.Amount < 0) acct.Amount = 0;
-                    h2.ChangeHeroGold((int)Math.Floor(net));
-                    SafeSync(behavior);
+                            if (gross <= 0)
+                            {
+                                Warn(L.S("savings_no_balance", "Insufficient savings balance."));
+                                return;
+                            }
 
-                    var msg = L.T("savings_withdraw_done_custom",
-                        "Withdraw of {GROSS} completed (Fee: {FEE} → {FEEVAL}). Received: {NET}. Balance: {BAL}.");
-                    msg.SetTextVariable("GROSS", BankUtils.FmtDenars(gross));
-                    msg.SetTextVariable("FEE", BankUtils.FmtPct((float)feeRate));
-                    msg.SetTextVariable("FEEVAL", BankUtils.FmtDenars(feeVal));
-                    msg.SetTextVariable("NET", BankUtils.FmtDenars(net));
-                    msg.SetTextVariable("BAL", BankUtils.FmtDenars(acct.Amount));
+                            double feeRate = GetDynamicWithdrawFee(s2);
+                            double grossCap = ComputeMaxGrossForGoldCap(feeRate);
 
-                    InformationManager.DisplayMessage(new InformationMessage(msg.ToString(), Color.FromUint(BankUtils.UiGold)));
-                    BankSafeUI.Switch("bank_savings_withdraw");
-                },
-                () => { }
-            ));
+                            if (gross > grossCap)
+                                gross = grossCap;
+
+                            if (gross <= 0)
+                            {
+                                Warn(L.S("savings_no_balance", "Insufficient savings balance."));
+                                return;
+                            }
+
+                            double feeVal = Math.Ceiling(gross * feeRate);
+                            double net = Math.Max(0, gross - feeVal);
+
+                            int netInt = (net >= int.MaxValue) ? int.MaxValue : (int)Math.Floor(net);
+                            if (netInt <= 0)
+                            {
+                                Warn(L.S("savings_no_balance", "Insufficient savings balance."));
+                                return;
+                            }
+
+                            acct.Amount = Math.Max(0d, acct.Amount - gross);
+                            if (acct.Amount < 0.0001d) acct.Amount = 0d;
+
+                            h2.ChangeHeroGold(netInt);
+                            SafeSync(behavior);
+
+                            var msg = L.T("savings_withdraw_done_custom",
+                                "Withdraw of {GROSS} completed (Fee: {FEE} -> {FEEVAL}). Received: {NET}. Balance: {BAL}.");
+                            msg.SetTextVariable("GROSS", BankUtils.FmtDenars(gross));
+                            msg.SetTextVariable("FEE", BankUtils.FmtPct((float)feeRate));
+                            msg.SetTextVariable("FEEVAL", BankUtils.FmtDenars(feeVal));
+                            msg.SetTextVariable("NET", BankUtils.FmtDenars(netInt));
+                            msg.SetTextVariable("BAL", BankUtils.FmtDenars(acct.Amount));
+
+                            InfoGold(msg.ToString());
+                            BankSafeUI.Switch("bank_savings_withdraw");
+                        }
+                        catch
+                        {
+                            // silent
+                        }
+                    },
+                    () => { }
+                ));
+            }
+            catch
+            {
+                // silent
+            }
         }
 
-        // ============================================
+        // ============================================================
         // Utilities
-        // ============================================
-        private static bool TryParsePositiveDouble(string input, out double value)
-        {
-            value = 0;
-            return !string.IsNullOrWhiteSpace(input)
-                   && double.TryParse(input.Trim(), out double parsed)
-                   && parsed > 0
-                   && (value = parsed) > 0;
-        }
+        // ============================================================
 
-        private static void ShowWarn(string msg)
+        private static bool TryParsePositiveAmount(string input, out double value)
         {
-            InformationManager.DisplayMessage(new InformationMessage(msg, Color.FromUint(0xFFFF6666)));
+            value = 0d;
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(input))
+                    return false;
+
+                string s = input.Trim();
+                s = s.Replace(" ", "");
+
+                // Try current culture
+                if (double.TryParse(s, NumberStyles.Number, CultureInfo.CurrentCulture, out double v1) && v1 > 0)
+                {
+                    value = v1;
+                    return true;
+                }
+
+                // Try invariant
+                if (double.TryParse(s, NumberStyles.Number, CultureInfo.InvariantCulture, out double v2) && v2 > 0)
+                {
+                    value = v2;
+                    return true;
+                }
+
+                // Normalize mixed separators
+                // If both '.' and ',' exist, decimal separator is the last one.
+                int lastDot = s.LastIndexOf('.');
+                int lastComma = s.LastIndexOf(',');
+
+                if (lastDot >= 0 && lastComma >= 0)
+                {
+                    char dec = (lastDot > lastComma) ? '.' : ',';
+                    char thou = (dec == '.') ? ',' : '.';
+
+                    string normalized = s.Replace(thou.ToString(), "");
+                    normalized = normalized.Replace(dec, '.');
+
+                    if (double.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out double v3) && v3 > 0)
+                    {
+                        value = v3;
+                        return true;
+                    }
+                }
+                else if (lastComma >= 0 && lastDot < 0)
+                {
+                    string normalized = s.Replace('.', ' ').Replace(" ", "").Replace(',', '.');
+                    if (double.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out double v4) && v4 > 0)
+                    {
+                        value = v4;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }
