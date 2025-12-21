@@ -175,6 +175,11 @@
 			<Private>false</Private>
 		</Reference>
 	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Source\Settings\" />
+	</ItemGroup>
+
+		
 
 	<!-- DEBUG / RELEASE -->
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

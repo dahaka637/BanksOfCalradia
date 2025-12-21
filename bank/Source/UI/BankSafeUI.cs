@@ -235,7 +235,7 @@ namespace BanksOfCalradia.Source.Core
         {
             try
             {
-                await Task.Delay(75);
+                await Task.Delay(50);
 
                 if (!IsBaseContextOK())
                     return;

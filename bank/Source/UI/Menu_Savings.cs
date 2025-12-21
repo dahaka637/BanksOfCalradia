@@ -326,9 +326,15 @@ namespace BanksOfCalradia.Source.UI
                 taxaBase *= (1.0f + incentivoPobreza - penalidadeRiqueza);
 
                 float ajusteLog = 1.0f / (1.0f + (prosperity / 25000.0f));
+
+                const float JUROS_MULTIPLICADOR_FINAL = 0.8f; // 80% do valor original
+
                 float taxaAnual = taxaBase * (0.95f + ajusteLog * 0.15f);
+                taxaAnual *= JUROS_MULTIPLICADOR_FINAL;
                 taxaAnual = MathF.Round(taxaAnual, 2);
+
                 float taxaDiaria = taxaAnual / CICLO_DIAS;
+
 
                 float withdrawRate = GetDynamicWithdrawFee(settlement);
 

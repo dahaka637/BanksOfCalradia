@@ -170,5 +170,8 @@
 	<string id="bank_bank_unavailable" text="Banco (No disponible)" />
 	<string id="bank_bank_need_town" text="Este menú solo está disponible dentro de una ciudad." />
 
+	<string id="bank_tt_need_town" text="Debes estar dentro de una ciudad para acceder al banco." />
+	<string id="bank_tt_initializing" text="El sistema bancario todavía se está inicializando." />
+
   </strings>
 </base>

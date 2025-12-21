@@ -170,5 +170,8 @@
 	<string id="bank_bank_unavailable" text="Банк (Недоступно)" />
 	<string id="bank_bank_need_town" text="Это меню доступно только внутри города." />
 
+	<string id="bank_tt_need_town" text="Вы должны находиться в городе, чтобы получить доступ к банку." />
+	<string id="bank_tt_initializing" text="Банковская система ещё инициализируется." />
+
   </strings>
 </base>

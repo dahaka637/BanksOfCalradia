@@ -27,6 +27,7 @@ namespace BanksOfCalradia.Source.Systems.Processing
         private const float PROSPERIDADE_ALTA = 6000f;
         private const float PROSPERIDADE_MAX = 10000f;
         private const float CICLO_DIAS = 120f;
+        private const double FINAL_INTEREST_MULTIPLIER = 0.8d; // 80% do juro calculado
 
         // ============================================================================
         // UTILITÁRIO: arredondamento universal para denares inteiros
@@ -226,7 +227,11 @@ namespace BanksOfCalradia.Source.Systems.Processing
 
             double ajusteLog = 1.0d / (1.0d + (p / 25000.0d));
             double taxaAnual =
-                Math.Round(taxaBase * (0.95d + ajusteLog * 0.15d), 2);
+                Math.Round(
+                    taxaBase * (0.95d + ajusteLog * 0.15d) * FINAL_INTEREST_MULTIPLIER,
+                    2
+                );
+
 
             double taxaDiaria = taxaAnual / CICLO_DIAS;
 

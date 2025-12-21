@@ -171,5 +171,9 @@
 	<string id="bank_bank_unavailable" text="Bank (Unavailable)" />
 	<string id="bank_bank_need_town" text="This menu is only available inside a town." />
 
+	<string id="bank_tt_need_town" text="You must be inside a town to access the bank." />
+	<string id="bank_tt_initializing" text="The bank system is still initializing." />
+
+
   </strings>
 </base>

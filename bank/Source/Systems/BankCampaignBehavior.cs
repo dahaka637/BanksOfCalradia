@@ -52,8 +52,8 @@ namespace BanksOfCalradia.Source.Systems
         private volatile string _healthReason = "Warming up...";
         private volatile int _warmupAttemptCount;
 
-        // Tempo real em que o comportamento foi carregado (usado para o gate de 15s)
-        private static readonly DateTime _bankBootRealTime = DateTime.UtcNow;
+        private static DateTime _bankBootRealTime;
+
 
         // ------------------------------------------------------------
         // Health state machine
@@ -82,6 +82,9 @@ namespace BanksOfCalradia.Source.Systems
             if (dataStore == null)
                 return;
 
+            // ============================================================
+            // SAVE
+            // ============================================================
             if (dataStore.IsSaving)
             {
                 try
@@ -111,7 +114,29 @@ namespace BanksOfCalradia.Source.Systems
                 return;
             }
 
-            // Loading
+            // ============================================================
+            // LOAD  → REINICIAR O SISTEMA PARA EVITAR GATE BYPASS
+            // ============================================================
+
+            try
+            {
+                // Reset total do sistema para evitar que saves carregados
+                // pulem os 25 segundos de proteção.
+                _bankBootRealTime = DateTime.UtcNow;
+                _uiWarmupReady = false;
+                _healthState = BankHealthState.WarmingUp;
+                _healthReason = "Warming up...";
+                _warmupAttemptCount = 0;
+            }
+            catch
+            {
+                // ignora — nunca deve falhar
+            }
+
+            // ============================================================
+            // LOAD DO JSON
+            // ============================================================
+
             string loadedJson = null;
             try
             {
@@ -150,8 +175,9 @@ namespace BanksOfCalradia.Source.Systems
                 }
             }
 
-            // NÃO acessar Settlement/Hero/UI aqui. Só valida estrutura de dados.
-            // Se o storage estiver inconsistente, warmup vai tentar rebuild e/ou marcar como Broken.
+            // ============================================================
+            // VALIDAÇÃO / REBUILD DE STORAGE
+            // ============================================================
             try
             {
                 var reason = string.Empty;
@@ -160,11 +186,13 @@ namespace BanksOfCalradia.Source.Systems
                 if (!healthOk)
                 {
                     _healthState = BankHealthState.Broken;
-                    _healthReason = string.IsNullOrWhiteSpace(reason) ? "Bank data validation failed during load." : reason;
+                    _healthReason = string.IsNullOrWhiteSpace(reason)
+                        ? "Bank data validation failed during load."
+                        : reason;
                 }
                 else
                 {
-                    // Ainda deixa como WarmingUp: sessão ainda nem lançou menus.
+                    // Continua warming-up até o WarmupAsync.
                     _healthState = BankHealthState.WarmingUp;
                     _healthReason = "Loaded. Waiting warmup...";
                 }
@@ -175,6 +203,7 @@ namespace BanksOfCalradia.Source.Systems
                 _healthReason = "Bank data validation failed during load.";
             }
         }
+
 
         private static JsonSerializerSettings BuildJsonSettings()
         {
@@ -193,17 +222,24 @@ namespace BanksOfCalradia.Source.Systems
             if (starter == null)
                 return;
 
+            // Inicia o cronômetro SOMENTE quando o jogo acabou de carregar completamente
+            _bankBootRealTime = DateTime.UtcNow;
+            _uiWarmupReady = false;
+            _healthState = BankHealthState.WarmingUp;
+            _healthReason = "Warming up...";
+            _warmupAttemptCount = 0;
+
             if (_menusRegistered)
                 return;
 
             _menusRegistered = true;
 
-            // Apenas registro (sem lógica pesada / sem Settlement)
             RegisterAllMenus(starter);
 
-            // Warmup para mitigar crash de "primeiro acesso"
             _ = WarmupUiAndStorageAsync();
         }
+
+
 
         private void RegisterAllMenus(CampaignGameStarter starter)
         {
@@ -296,8 +332,6 @@ namespace BanksOfCalradia.Source.Systems
                 _healthReason = "Warming up...";
                 _warmupAttemptCount++;
 
-                // Pequeno delay inicial: evita frame 0/1 do pipeline de menus/gauntlet
-                await Task.Delay(350);
 
                 // Aguarda campanha/hero (ambiente mínimo), sem exigir cidade
                 for (int i = 0; i < 3; i++)
@@ -305,7 +339,7 @@ namespace BanksOfCalradia.Source.Systems
                     if (IsBaseEnvironmentReady())
                         break;
 
-                    await Task.Delay(i == 0 ? 650 : 800);
+                 
                 }
 
                 _uiWarmupReady = IsBaseEnvironmentReady();
@@ -332,7 +366,7 @@ namespace BanksOfCalradia.Source.Systems
                 else
                 {
                     // Tentativa extra após um pequeno delay (mitiga edge-case de load incompleto)
-                    await Task.Delay(250);
+      
 
                     ok = ValidateAndMaybeRebuildStorage(out reason, allowRebuild: true);
                     if (ok)
@@ -465,34 +499,57 @@ namespace BanksOfCalradia.Source.Systems
         {
             try
             {
-                // 0) Banco ainda não está totalmente pronto?
-                //    → NÃO mostra a opção no menu da cidade.
-                if (!IsSystemFullyReady())
-                    return false;
-
-                // 1) Cidade real obrigatória (este botão só pode existir dentro de cidade)
-                var settlement = Settlement.CurrentSettlement;
-                if (settlement == null || settlement.Town == null)
-                    return false;
-
-                // 2) Configuração padrão do botão
+                // 1) Sempre mostrar botão
                 args.optionLeaveType = GameMenuOption.LeaveType.Submenu;
 
-                // 3) Nome da cidade
+                // 2) Cidade obrigatória
+                var settlement = Settlement.CurrentSettlement;
+                if (settlement == null || settlement.Town == null)
+                {
+                    args.IsEnabled = false;
+
+                    // {=bank_tt_need_town}
+                    var tt = L.T("tt_need_town",
+                        "You must be inside a town to access the bank.");
+
+                    args.Tooltip = tt;
+                    return true; // mostra cinza
+                }
+
+                // 3) Banco ainda não está pronto
+                if (!IsSystemFullyReady())
+                {
+                    args.IsEnabled = false;
+
+                    // {=bank_tt_initializing}
+                    var tt = L.T("tt_initializing",
+                        "The bank system is still initializing.");
+
+                    args.Tooltip = tt;
+                }
+                else
+                {
+                    args.IsEnabled = true; // pronto para clicar
+                }
+
+                // 4) Texto "Visit Bank of {CITY}"
                 string townName = settlement.Name?.ToString() ?? L.S("default_city", "Town");
 
-                // 4) Texto dinâmico seguro
                 var labelText = L.T("visit_label", "Visit Bank of {CITY}");
                 labelText.SetTextVariable("CITY", townName);
                 args.Text = labelText;
 
-                return true;
+                return true; // botão aparece sempre
             }
             catch
             {
                 return false;
             }
         }
+
+
+
+
 
         // ------------------------------------------------------------
         // Bank Menu init (shows: loading / broken / normal)
@@ -692,7 +749,7 @@ namespace BanksOfCalradia.Source.Systems
 
         private float GetRemainingBootTime()
         {
-            float remain = 15f - GetElapsedBootSeconds();
+            float remain = 30f - GetElapsedBootSeconds();
             if (remain < 0f) remain = 0f;
             return remain;
         }
@@ -707,7 +764,7 @@ namespace BanksOfCalradia.Source.Systems
                 // 1) Esperar SEMPRE 15s de tempo REAL de sessão
                 //    (não depende de CampaignTime, nem de save)
                 // ============================================================
-                if (GetElapsedBootSeconds() < 25f)
+                if (GetElapsedBootSeconds() < 0f)
                     return false;
 
                 // ============================================================
