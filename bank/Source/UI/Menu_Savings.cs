@@ -102,20 +102,49 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
-        private static async Task WaitUiAsync(MenuCallbackArgs args)
+        // ============================================================
+        // Safe menu apply (no async / no delays)
+        // ============================================================
+        private static bool IsMenuAlive(MenuCallbackArgs args, string expectedMenuId)
         {
             try
             {
-                await Task.Delay(80);
+                var ctx = args?.MenuContext;
+                var menu = ctx?.GameMenu;
+                if (menu == null) return false;
 
-                if (args?.MenuContext == null || args.MenuContext.GameMenu == null)
-                    await Task.Delay(120);
+                // Importante: evita aplicar texto se o jogador já trocou de menu.
+                // GameMenu.StringId existe no Bannerlord (id do menu criado no AddGameMenu).
+                if (!string.IsNullOrEmpty(expectedMenuId))
+                    return string.Equals(menu.StringId, expectedMenuId, StringComparison.Ordinal);
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static void SafeApply(MenuCallbackArgs args, string expectedMenuId, TextObject title, TextObject body)
+        {
+            try
+            {
+                if (!IsMenuAlive(args, expectedMenuId))
+                    return;
+
+                if (title != null)
+                    args.MenuTitle = title;
+
+                if (body != null)
+                    SafeSetMenuText(args, body);
             }
             catch
             {
                 // silent
             }
         }
+
 
         private static void SafeSetMenuText(MenuCallbackArgs args, TextObject text)
         {
@@ -286,31 +315,75 @@ namespace BanksOfCalradia.Source.UI
         // ============================================================
         // Main savings menu (Ultra Safe)
         // ============================================================
-        private static async void OnMenuInit_Main(MenuCallbackArgs args, BankCampaignBehavior behavior)
+        private static void OnMenuInit_Main(MenuCallbackArgs args, BankCampaignBehavior behavior)
         {
+            // 1) Cria os “campos” (TextObjects) com placeholders e aplica imediatamente (sem tocar em Campaign/Hero/Town ainda)
+            var title = L.T("savings_menu_title", "Savings - Bank of {CITY}");
+            title.SetTextVariable("CITY", L.S("default_city", "City"));
+
+            var body = L.T("savings_menu_body",
+                "Savings - Bank of {CITY}\n\n" +
+                "• Annual interest rate: {INTEREST_AA}\n" +
+                "• Daily interest rate: {INTEREST_AD}\n" +
+                "• Local prosperity: {PROSPERITY}\n" +
+                "• Withdraw fee: {WITHDRAW_FEE}\n" +
+                "• Current balance: {BALANCE}\n" +
+                "• Auto-Reinvestment: {REINVEST}\n");
+
+            body.SetTextVariable("CITY", L.S("default_city", "City"));
+            body.SetTextVariable("INTEREST_AA", "--");
+            body.SetTextVariable("INTEREST_AD", "--");
+            body.SetTextVariable("PROSPERITY", "--");
+            body.SetTextVariable("WITHDRAW_FEE", "--");
+            body.SetTextVariable("BALANCE", "--");
+            body.SetTextVariable("REINVEST", "--");
+
+            SafeApply(args, "bank_savings", title, body);
+
+            // 2) Agora sim: pega dados + valida tudo com “gates”
             try
             {
-                await WaitUiAsync(args);
-
                 if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
                 {
-                    args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
-                    SafeSetMenuText(args, L.T("savings_need_town", "You must be inside a town to access savings."));
+                    SafeApply(
+                        args,
+                        "bank_savings",
+                        L.T("savings_unavailable", "Savings (Unavailable)"),
+                        L.T("savings_need_town", "You must be inside a town to access savings.")
+                    );
                     return;
                 }
 
-                string townName = settlement.Name?.ToString() ?? L.S("default_city", "City");
-                float prosperity = town.Prosperity;
+                // Validação adicional: menu ainda é o mesmo?
+                if (!IsMenuAlive(args, "bank_savings"))
+                    return;
 
-                // Interest model (original logic preserved)
+                // 3) Busca dados do “account” e valida
+                var acct = storage.GetOrCreateSavings(playerId, townId);
+                if (acct == null)
+                {
+                    SafeApply(
+                        args,
+                        "bank_savings",
+                        L.T("savings_unavailable", "Savings (Unavailable)"),
+                        L.T("savings_prewarm_fail",
+                            "The bank system is still initializing.\n\nPlease exit the menu and try again in a moment.")
+                    );
+                    return;
+                }
+
+                if (acct.Amount < 0)
+                    acct.Amount = 0;
+
+                // 4) Calcula tudo em variáveis locais (sem mutar UI ainda)
+                string townName = settlement.Name?.ToString() ?? L.S("default_city", "City");
+                float prosperity = MathF.Max(town.Prosperity, 1f);
+
                 const float prosperidadeBase = 5000f;
                 const float prosperidadeAlta = 6000f;
                 const float prosperidadeMax = 10000f;
                 const float CICLO_DIAS = 120f;
 
-                prosperity = MathF.Max(prosperity, 1f);
-                float rawSuavizador = prosperidadeBase / prosperity;
-                float fatorSuavizador = 0.7f + (rawSuavizador * 0.7f);
                 float pobrezaRatio = MathF.Max(0f, (prosperidadeBase - prosperity) / prosperidadeBase);
                 float incentivoPobreza = MathF.Pow(pobrezaRatio, 1.05f) * 0.15f;
                 float penalidadeRiqueza = 0f;
@@ -326,8 +399,7 @@ namespace BanksOfCalradia.Source.UI
                 taxaBase *= (1.0f + incentivoPobreza - penalidadeRiqueza);
 
                 float ajusteLog = 1.0f / (1.0f + (prosperity / 25000.0f));
-
-                const float JUROS_MULTIPLICADOR_FINAL = 0.8f; // 80% do valor original
+                const float JUROS_MULTIPLICADOR_FINAL = 0.8f;
 
                 float taxaAnual = taxaBase * (0.95f + ajusteLog * 0.15f);
                 taxaAnual *= JUROS_MULTIPLICADOR_FINAL;
@@ -335,34 +407,19 @@ namespace BanksOfCalradia.Source.UI
 
                 float taxaDiaria = taxaAnual / CICLO_DIAS;
 
-
                 float withdrawRate = GetDynamicWithdrawFee(settlement);
 
-                var acct = storage.GetOrCreateSavings(playerId, townId);
-
-                // FALHA CRÍTICA DE PREWARM / RACE → PREVINE CRASH
-                if (acct == null)
-                {
-                    args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
-                    SafeSetMenuText(args, L.T("savings_prewarm_fail",
-                        "The bank system is still initializing.\n\nPlease exit the menu and try again in a moment."));
-                    return;
-                }
-
-                if (acct.Amount < 0)
-                    acct.Amount = 0;
-
                 double balance = acct.Amount;
-
 
                 string reinvestStatus = acct.AutoReinvest
                     ? L.S("savings_reinvest_on", "Enabled")
                     : L.S("savings_reinvest_off", "Disabled");
 
-                var title = L.T("savings_menu_title", "Savings - Bank of {CITY}");
+                // 5) Só agora aplica nos “campos” e reaplica no menu (com gate de menu vivo)
+                title = L.T("savings_menu_title", "Savings - Bank of {CITY}");
                 title.SetTextVariable("CITY", townName);
 
-                var body = L.T("savings_menu_body",
+                body = L.T("savings_menu_body",
                     "Savings - Bank of {CITY}\n\n" +
                     "• Annual interest rate: {INTEREST_AA}\n" +
                     "• Daily interest rate: {INTEREST_AD}\n" +
@@ -379,8 +436,7 @@ namespace BanksOfCalradia.Source.UI
                 body.SetTextVariable("BALANCE", BankUtils.FmtDenars(balance));
                 body.SetTextVariable("REINVEST", reinvestStatus);
 
-                args.MenuTitle = title;
-                SafeSetMenuText(args, body);
+                SafeApply(args, "bank_savings", title, body);
             }
             catch (Exception e)
             {
@@ -391,12 +447,10 @@ namespace BanksOfCalradia.Source.UI
                         Color.FromUint(0xFFFF3333)
                     ));
                 }
-                catch
-                {
-                    // silent
-                }
+                catch { }
             }
         }
+
 
         // ============================================================
         // Deposit submenu (Ultra Safe)
@@ -479,26 +533,38 @@ namespace BanksOfCalradia.Source.UI
             );
         }
 
-        private static async void OnMenuInit_Deposit(MenuCallbackArgs args, BankCampaignBehavior behavior)
+        private static void OnMenuInit_Deposit(MenuCallbackArgs args, BankCampaignBehavior behavior)
         {
+            // Placeholder primeiro
+            SafeApply(
+                args,
+                "bank_savings_deposit",
+                L.T("savings_deposit_title", "Deposit to Savings - Bank balance: {BALANCE}"),
+                L.T("savings_deposit_body",
+                    "Select a fixed amount to deposit or use 'Custom amount...'.\n\n" +
+                    "Current bank balance: {BALANCE}")
+            );
+
             try
             {
-                await WaitUiAsync(args);
-
                 if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
                 {
-                    args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
-                    SafeSetMenuText(args, L.T("ctx_lost", "Context lost. Please reopen the bank."));
+                    SafeApply(args, "bank_savings_deposit",
+                        L.T("savings_unavailable", "Savings (Unavailable)"),
+                        L.T("ctx_lost", "Context lost. Please reopen the bank."));
                     return;
                 }
 
-                var savings = storage.GetOrCreateSavings(playerId, townId);
+                if (!IsMenuAlive(args, "bank_savings_deposit"))
+                    return;
 
+                var savings = storage.GetOrCreateSavings(playerId, townId);
                 if (savings == null)
                 {
-                    args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
-                    SafeSetMenuText(args, L.T("ctx_lost",
-                        "The bank system is still initializing.\n\nPlease reopen this menu shortly."));
+                    SafeApply(args, "bank_savings_deposit",
+                        L.T("savings_unavailable", "Savings (Unavailable)"),
+                        L.T("ctx_lost",
+                            "The bank system is still initializing.\n\nPlease reopen this menu shortly."));
                     return;
                 }
 
@@ -507,23 +573,24 @@ namespace BanksOfCalradia.Source.UI
 
                 double balance = savings.Amount;
 
-
                 var title = L.T("savings_deposit_title", "Deposit to Savings - Bank balance: {BALANCE}");
                 title.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(balance));
-                args.MenuTitle = title;
 
                 var body = L.T("savings_deposit_body",
                     "Select a fixed amount to deposit or use 'Custom amount...'.\n\n" +
                     "Current bank balance: {BALANCE}");
                 body.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(balance));
-                SafeSetMenuText(args, body);
+
+                SafeApply(args, "bank_savings_deposit", title, body);
             }
             catch
             {
-                args.MenuTitle = L.T("savings_err_title", "Savings (Error)");
-                SafeSetMenuText(args, L.T("savings_err_ctx", "[BanksOfCalradia] Context not available."));
+                SafeApply(args, "bank_savings_deposit",
+                    L.T("savings_err_title", "Savings (Error)"),
+                    L.T("savings_err_ctx", "[BanksOfCalradia] Context not available."));
             }
         }
+
 
         private static void TryDepositAll(BankCampaignBehavior behavior)
         {
@@ -785,38 +852,51 @@ namespace BanksOfCalradia.Source.UI
             );
         }
 
-        private static async void OnMenuInit_Withdraw(MenuCallbackArgs args, BankCampaignBehavior behavior)
+        private static void OnMenuInit_Withdraw(MenuCallbackArgs args, BankCampaignBehavior behavior)
         {
+            // Placeholder primeiro
+            var titlePh = L.T("savings_withdraw_title", "Withdraw from Savings - Bank balance: {BALANCE}");
+            titlePh.SetTextVariable("BALANCE", "--");
+
+            var bodyPh = L.T("savings_withdraw_body",
+                "Select a fixed amount to withdraw or use 'Custom amount...'.\n\n" +
+                "Current withdraw fee: {FEE}\n" +
+                "Current bank balance: {BALANCE}");
+            bodyPh.SetTextVariable("FEE", "--");
+            bodyPh.SetTextVariable("BALANCE", "--");
+
+            SafeApply(args, "bank_savings_withdraw", titlePh, bodyPh);
+
             try
             {
-                await WaitUiAsync(args);
-
                 if (!TryGetStrictContext(behavior, out var hero, out var settlement, out var town, out var storage, out var playerId, out var townId))
                 {
-                    args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
-                    SafeSetMenuText(args, L.T("ctx_lost", "Context lost. Please reopen the bank."));
+                    SafeApply(args, "bank_savings_withdraw",
+                        L.T("savings_unavailable", "Savings (Unavailable)"),
+                        L.T("ctx_lost", "Context lost. Please reopen the bank."));
                     return;
                 }
 
-                var acct = storage.GetOrCreateSavings(playerId, townId);
+                if (!IsMenuAlive(args, "bank_savings_withdraw"))
+                    return;
 
+                var acct = storage.GetOrCreateSavings(playerId, townId);
                 if (acct == null)
                 {
-                    args.MenuTitle = L.T("savings_unavailable", "Savings (Unavailable)");
-                    SafeSetMenuText(args, L.T("ctx_lost",
-                        "Savings data is not ready yet.\n\nPlease reopen the bank menu."));
+                    SafeApply(args, "bank_savings_withdraw",
+                        L.T("savings_unavailable", "Savings (Unavailable)"),
+                        L.T("ctx_lost",
+                            "Savings data is not ready yet.\n\nPlease reopen the bank menu."));
                     return;
                 }
 
                 double savingsBalance = acct.Amount;
-
                 if (savingsBalance < 0) savingsBalance = 0;
 
                 float feeRate = GetDynamicWithdrawFee(settlement);
 
                 var title = L.T("savings_withdraw_title", "Withdraw from Savings - Bank balance: {BALANCE}");
                 title.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(savingsBalance));
-                args.MenuTitle = title;
 
                 var body = L.T("savings_withdraw_body",
                     "Select a fixed amount to withdraw or use 'Custom amount...'.\n\n" +
@@ -825,14 +905,16 @@ namespace BanksOfCalradia.Source.UI
                 body.SetTextVariable("FEE", BankUtils.FmtPct(feeRate));
                 body.SetTextVariable("BALANCE", BankUtils.FmtDenarsFull(savingsBalance));
 
-                SafeSetMenuText(args, body);
+                SafeApply(args, "bank_savings_withdraw", title, body);
             }
             catch
             {
-                args.MenuTitle = L.T("savings_err_title", "Savings (Error)");
-                SafeSetMenuText(args, L.T("savings_err_ctx", "[BanksOfCalradia] Context not available."));
+                SafeApply(args, "bank_savings_withdraw",
+                    L.T("savings_err_title", "Savings (Error)"),
+                    L.T("savings_err_ctx", "[BanksOfCalradia] Context not available."));
             }
         }
+
 
         // ============================================================
         // Withdraw Operations (supports huge balances safely)

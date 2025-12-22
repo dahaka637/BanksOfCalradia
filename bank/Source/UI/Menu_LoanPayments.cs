@@ -152,20 +152,52 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
-        private static async Task WaitUiAsync(MenuCallbackArgs args)
+        // -------------------------------------------------------------
+        // Safe menu apply (no async / no delays)
+        // -------------------------------------------------------------
+        private static bool IsMenuAlive(MenuCallbackArgs args, string expectedMenuId)
         {
             try
             {
-                await Task.Delay(80);
+                var menu = args?.MenuContext?.GameMenu;
+                if (menu == null)
+                    return false;
 
-                if (args?.MenuContext == null || args.MenuContext.GameMenu == null)
-                    await Task.Delay(120);
+                if (string.IsNullOrEmpty(expectedMenuId))
+                    return true;
+
+                return string.Equals(menu.StringId, expectedMenuId, StringComparison.Ordinal);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static void SafeApply(MenuCallbackArgs args, string expectedMenuId, TextObject title, TextObject body)
+        {
+            try
+            {
+                if (!IsMenuAlive(args, expectedMenuId))
+                    return;
+
+                if (title != null)
+                    args.MenuTitle = title;
+
+                if (body != null)
+                    SetMenuText(args, body);
             }
             catch
             {
                 // silencioso
             }
         }
+
+        private static void SafeSync(BankCampaignBehavior behavior)
+        {
+            try { behavior?.SyncBankData(); } catch { }
+        }
+
 
         private static BankCampaignBehavior GetBehavior()
         {
@@ -306,15 +338,25 @@ namespace BanksOfCalradia.Source.UI
         // -------------------------------------------------------------
         // Menu: Lista
         // -------------------------------------------------------------
-        private static async void OnMenuInit_List(MenuCallbackArgs args)
+        private static void OnMenuInit_List(MenuCallbackArgs args)
         {
+            // 1) Reset seguro (evita “ghost contract”)
+            _selectedLoanId = null;
+
+            // 2) Placeholder primeiro (UI válida mesmo se falhar depois)
+            var title = L.T("loanpay_list_title", "Bank of {CITY} — Active Loans");
+            title.SetTextVariable("CITY", L.S("default_city", "City"));
+
+            var bodyPh = L.T("loanpay_list_loading_body",
+                "Bank of {CITY}\n\nLoading active loans...\n\n{SEP}");
+            bodyPh.SetTextVariable("CITY", L.S("default_city", "City"));
+            bodyPh.SetTextVariable("SEP", SEP);
+
+            SafeApply(args, "bank_loan_pay", title, bodyPh);
+
+            // 3) Coleta + validação + cálculo + apply final
             try
             {
-                await WaitUiAsync(args);
-
-                // Reset de segurança: evita contrato "fantasma"
-                _selectedLoanId = null;
-
                 if (!TryGetStrictTownContext(
                         out var behavior,
                         out var hero,
@@ -324,26 +366,31 @@ namespace BanksOfCalradia.Source.UI
                         out var playerId,
                         out var townId))
                 {
-                    args.MenuTitle = L.T("loanpay_err_title", "Loans (Unavailable)");
-                    SetMenuText(args, L.T("loanpay_err_ctx", "Context lost. Please reopen the bank."));
+                    SafeApply(
+                        args,
+                        "bank_loan_pay",
+                        L.T("loanpay_err_title", "Loans (Unavailable)"),
+                        L.T("loanpay_err_ctx", "Context lost. Please reopen the bank.")
+                    );
                     return;
                 }
+
+                if (!IsMenuAlive(args, "bank_loan_pay"))
+                    return;
 
                 string townName = settlement.Name?.ToString() ?? L.S("default_city", "City");
 
                 var loans = storage.GetLoans(playerId) ?? new List<BankLoanData>();
 
-                // Filtra só contratos desta cidade e ativos
-                List<BankLoanData> cityLoans = loans.FindAll(l =>
+                var cityLoans = loans.FindAll(l =>
                     l != null &&
                     !string.IsNullOrEmpty(l.TownId) &&
                     l.TownId == townId &&
                     l.Remaining > ACTIVE_LOAN_THRESHOLD
                 );
 
-                var title = L.T("loanpay_list_title", "Bank of {CITY} — Active Loans");
+                title = L.T("loanpay_list_title", "Bank of {CITY} — Active Loans");
                 title.SetTextVariable("CITY", townName);
-                args.MenuTitle = title;
 
                 if (cityLoans.Count == 0)
                 {
@@ -351,7 +398,8 @@ namespace BanksOfCalradia.Source.UI
                         "Bank of {CITY}\n\nYou have no pending loans at this bank.\n\n{SEP}");
                     bodyEmpty.SetTextVariable("CITY", townName);
                     bodyEmpty.SetTextVariable("SEP", SEP);
-                    SetMenuText(args, bodyEmpty);
+
+                    SafeApply(args, "bank_loan_pay", title, bodyEmpty);
                     return;
                 }
 
@@ -364,7 +412,8 @@ namespace BanksOfCalradia.Source.UI
                 body.SetTextVariable("CITY", townName);
                 body.SetTextVariable("DEBT", BankUtils.FmtDenars(totalDebt));
                 body.SetTextVariable("SEP", SEP);
-                SetMenuText(args, body);
+
+                SafeApply(args, "bank_loan_pay", title, body);
             }
             catch (Exception e)
             {
@@ -372,16 +421,14 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
+
         // -------------------------------------------------------------
         // Picker de contratos
         // -------------------------------------------------------------
-        private static async void ShowLoanPicker()
+        private static void ShowLoanPicker()
         {
             try
             {
-                // Pequeno delay para reduzir race-condition
-                await Task.Delay(60);
-
                 if (!TryGetStrictTownContext(
                         out var behavior,
                         out var hero,
@@ -450,6 +497,7 @@ namespace BanksOfCalradia.Source.UI
 
                             _selectedLoanId = selected[0].Identifier as string;
 
+                            // Revalida no storage (fonte da verdade)
                             var loanNow = GetSelectedLoanStrictInCurrentTown();
                             if (loanNow == null || loanNow.Remaining <= ACTIVE_LOAN_THRESHOLD)
                             {
@@ -470,14 +518,7 @@ namespace BanksOfCalradia.Source.UI
                     },
                     _ =>
                     {
-                        try
-                        {
-                            BankSafeUI.Switch("bank_loan_pay");
-                        }
-                        catch
-                        {
-                            // silencioso
-                        }
+                        try { BankSafeUI.Switch("bank_loan_pay"); } catch { }
                     }
                 );
 
@@ -490,26 +531,48 @@ namespace BanksOfCalradia.Source.UI
             }
         }
 
+
         // -------------------------------------------------------------
         // Menu: Detalhes
         // -------------------------------------------------------------
-        private static async void OnMenuInit_Detail(MenuCallbackArgs args)
+        private static void OnMenuInit_Detail(MenuCallbackArgs args)
         {
+            // 1) Placeholder primeiro
+            var title = L.T("loanpay_detail_title", "Loan Details");
+
+            var bodyPh = L.T("loanpay_detail_loading_body",
+                "Loan Contract — Bank of {CITY}\n\nLoading contract details...\n\n{SEP}");
+            bodyPh.SetTextVariable("CITY", L.S("default_city", "City"));
+            bodyPh.SetTextVariable("SEP", SEP);
+
+            SafeApply(args, "bank_loan_detail", title, bodyPh);
+
+            // 2) Coleta + validação + apply final
             try
             {
-                await WaitUiAsync(args);
-
                 if (!IsInValidTown())
                 {
-                    SetMenuText(args, L.T("loanpay_err_ctx", "Context lost. Please reopen the bank."));
+                    SafeApply(
+                        args,
+                        "bank_loan_detail",
+                        L.T("loanpay_detail_title", "Loan Details"),
+                        L.T("loanpay_err_ctx", "Context lost. Please reopen the bank.")
+                    );
                     return;
                 }
+
+                if (!IsMenuAlive(args, "bank_loan_detail"))
+                    return;
 
                 var loan = GetSelectedLoanStrictInCurrentTown();
                 if (loan == null)
                 {
-                    args.MenuTitle = L.T("loanpay_detail_title", "Loan Details");
-                    SetMenuText(args, L.T("loanpay_detail_invalid", "No contract selected."));
+                    SafeApply(
+                        args,
+                        "bank_loan_detail",
+                        L.T("loanpay_detail_title", "Loan Details"),
+                        L.T("loanpay_detail_invalid", "No contract selected.")
+                    );
                     return;
                 }
 
@@ -552,14 +615,14 @@ namespace BanksOfCalradia.Source.UI
                         : L.S("loanpay_action_hint_done", "This loan is fully paid.")
                 );
 
-                args.MenuTitle = L.T("loanpay_detail_title", "Loan Details");
-                SetMenuText(args, body);
+                SafeApply(args, "bank_loan_detail", L.T("loanpay_detail_title", "Loan Details"), body);
             }
             catch (Exception e)
             {
                 Warn(L.S("loanpay_err_open_detail", "[BanksOfCalradia] Error showing loan details: ") + e.Message);
             }
         }
+
 
         // -------------------------------------------------------------
         // Cálculo de abatimento (dinâmico, igual ao Python)
