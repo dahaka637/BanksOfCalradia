@@ -1,21 +1,25 @@
 ﻿// ============================================
 // BanksOfCalradia - BankCampaignBehavior.cs
 // Author: Dahaka
-// Version: 3.0.3 (No-Async Warmup + MainThread Warmup + Safe Navigation + No Raw Storage Types)
+// Version: 3.0.6 (Per-Campaign Menu Register HARD-GUARANTEE)
 // Description:
 //   Core campaign behavior responsible for:
-//   • Registering UI menus safely
+//   • Registering UI menus safely (per campaign; NO duplication)
 //   • Loading/saving BankStorage (JSON)
 //   • Warmup + storage health gate (prevents random UI crashes)
 //   • Daily delegates guarded
 //
-// What changed vs previous attempts:
-//   - REMOVED all async/Task warmup (Bannerlord can crash if game objects are touched off-thread)
-//   - Warmup/health/prewarm now runs ONLY on main thread via CampaignEvents.TickEvent
-//   - "Visit the Bank" always opens bank_menu when inside a town
-//   - Savings/Loans buttons are shown but disabled with tooltips until ready
-//   - NO direct access to SavingsByPlayer/LoansByPlayer to avoid type mismatches
-//   - Readiness check uses storage.GetOrCreateSavings(playerId, townId) (known to exist in your project)
+// Key guarantee in this version:
+//   - Menu registration runs EXACTLY ONCE per BankCampaignBehavior instance.
+//   - No static flags.
+//   - No reliance on "starter uniqueness".
+//   - Prevents duplicated buttons even if OnSessionLaunched fires multiple times.
+//
+// Notes:
+//   - Do NOT call RegisterAllMenus from anywhere else.
+//   - If you have multiple BankCampaignBehavior instances registered by mistake
+//     (e.g., added twice in SubModule), you will still get duplicates. This file
+//     guarantees no duplicates per instance.
 // ============================================
 
 using BanksOfCalradia.Source.Core;
@@ -39,6 +43,10 @@ namespace BanksOfCalradia.Source.Systems
         private readonly object _storageLock = new object();
         private BankStorage _bankStorage = new BankStorage();
 
+        // ------------------------------------------------------------
+        // Menu registration (PER INSTANCE, NO STATIC)
+        // ------------------------------------------------------------
+        private readonly object _menuRegLock = new object();
         private bool _menusRegistered;
 
         // Warmup/health gate (MAIN THREAD only)
@@ -46,11 +54,6 @@ namespace BanksOfCalradia.Source.Systems
         private volatile BankHealthState _healthState = BankHealthState.WarmingUp;
         private volatile string _healthReason = "Warming up...";
         private volatile int _warmupAttemptCount;
-
-        private static DateTime _bankBootRealTime;
-
-        // Tempo mínimo real antes de habilitar Savings/Loans (segundos)
-        private const float BOOT_SECONDS = 15f;
 
         // Warmup step control
         private bool _warmupCompleted;
@@ -115,7 +118,7 @@ namespace BanksOfCalradia.Source.Systems
             }
 
             // ============================================================
-            // LOAD → reset do sistema
+            // LOAD -> reset do sistema (warmup/health)
             // ============================================================
             SafeResetWarmupState();
 
@@ -203,8 +206,6 @@ namespace BanksOfCalradia.Source.Systems
         {
             try
             {
-                _bankBootRealTime = DateTime.UtcNow;
-
                 _uiWarmupReady = false;
                 _warmupCompleted = false;
                 _tickAccumulator = 0f;
@@ -220,19 +221,26 @@ namespace BanksOfCalradia.Source.Systems
         }
 
         // ------------------------------------------------------------
-        // Menu Registration
+        // Menu Registration (HARD GUARANTEE: ONCE PER INSTANCE)
         // ------------------------------------------------------------
         private void OnSessionLaunched(CampaignGameStarter starter)
         {
             if (starter == null)
                 return;
 
+            // HARD GUARANTEE:
+            // If Bannerlord fires OnSessionLaunched multiple times for the same behavior instance,
+            // we register menus only once, preventing duplicated buttons.
+            lock (_menuRegLock)
+            {
+                if (_menusRegistered)
+                    return;
+
+                _menusRegistered = true;
+            }
+
+            // Reset warmup ONLY on the first session launch for this instance.
             SafeResetWarmupState();
-
-            if (_menusRegistered)
-                return;
-
-            _menusRegistered = true;
 
             RegisterAllMenus(starter);
         }
@@ -251,7 +259,7 @@ namespace BanksOfCalradia.Source.Systems
                 OnBankMenuInit
             );
 
-            // Opção no menu "town": SEMPRE abre o bank_menu se estiver em cidade
+            // Opção no menu "town"
             starter.AddGameMenuOption(
                 "town",
                 "visit_bank",
@@ -264,7 +272,7 @@ namespace BanksOfCalradia.Source.Systems
                 isLeave: false
             );
 
-            // Savings (desabilita com tooltip até estar pronto)
+            // Savings
             starter.AddGameMenuOption(
                 "bank_menu",
                 "open_bank_savings",
@@ -317,18 +325,15 @@ namespace BanksOfCalradia.Source.Systems
         {
             try
             {
-                // Accumulator para não rodar pesado todo frame
                 _tickAccumulator += dt;
-                if (_tickAccumulator < 0.25f) // 4x por segundo
+                if (_tickAccumulator < 0.25f)
                     return;
 
                 _tickAccumulator = 0f;
 
-                // Já terminou
                 if (_warmupCompleted)
                     return;
 
-                // Base environment
                 if (!IsBaseEnvironmentReady())
                 {
                     _uiWarmupReady = false;
@@ -339,15 +344,6 @@ namespace BanksOfCalradia.Source.Systems
 
                 _uiWarmupReady = true;
 
-                // Gate de tempo real
-                if (GetElapsedBootSeconds() < BOOT_SECONDS)
-                {
-                    _healthState = BankHealthState.WarmingUp;
-                    _healthReason = "Boot gate...";
-                    return;
-                }
-
-                // Se já está broken, para aqui
                 if (_healthState == BankHealthState.Broken)
                 {
                     _warmupCompleted = true;
@@ -356,7 +352,6 @@ namespace BanksOfCalradia.Source.Systems
 
                 _warmupAttemptCount++;
 
-                // 1) valida/rebuild storage (main thread)
                 string reason;
                 bool ok = ValidateAndMaybeRebuildStorage(out reason, allowRebuild: true);
 
@@ -368,7 +363,6 @@ namespace BanksOfCalradia.Source.Systems
                     return;
                 }
 
-                // 2) prewarm mínimo: se já estiver em cidade, garante que savings existe e marca Initialized
                 TryEnsureRuntimeInitForCurrentTown();
 
                 _healthState = BankHealthState.Healthy;
@@ -406,16 +400,12 @@ namespace BanksOfCalradia.Source.Systems
                     if (storage == null)
                         return;
 
-                    // seu mod usa Initialized como gate em vários lugares
                     storage.Initialized = true;
 
-                    // Usa APENAS API pública que você já tem no projeto (ver Menu_Savings.cs)
-                    // Se isso retornar null por algum motivo, não forçamos nada.
                     var acct = storage.GetOrCreateSavings(playerId, townId);
                     if (acct == null)
                         return;
 
-                    // sane
                     if (acct.Amount < 0)
                         acct.Amount = 0;
                 }
@@ -497,16 +487,13 @@ namespace BanksOfCalradia.Source.Systems
                     return true;
                 }
 
-                // Sempre deixa entrar no bank_menu (lá dentro mostra loading/error)
                 args.IsEnabled = true;
 
-                // Tooltip informativo apenas
                 if (!IsCoreReadyForSubFeatures())
                     args.Tooltip = L.T("tt_initializing", "The bank system is still initializing.");
                 else
                     args.Tooltip = null;
 
-                // Texto dinâmico
                 var settlement = Settlement.CurrentSettlement;
                 string townName = settlement != null && settlement.Name != null
                     ? settlement.Name.ToString()
@@ -617,10 +604,7 @@ namespace BanksOfCalradia.Source.Systems
 
                 if (!IsCoreReadyForSubFeatures())
                 {
-                    float remain = GetRemainingBootTime();
-                    string secText = remain > 0f
-                        ? string.Format("{0:F1} seconds remaining...", remain)
-                        : "Finalizing modules...";
+                    string secText = "Finalizing modules...";
 
                     var txt = L.T("bank_bootwait",
                         "Loading bank systems...\n\n" +
@@ -757,28 +741,6 @@ namespace BanksOfCalradia.Source.Systems
         }
 
         // ------------------------------------------------------------
-        // Boot timing helpers
-        // ------------------------------------------------------------
-        private float GetElapsedBootSeconds()
-        {
-            try
-            {
-                return (float)(DateTime.UtcNow - _bankBootRealTime).TotalSeconds;
-            }
-            catch
-            {
-                return 9999f;
-            }
-        }
-
-        private float GetRemainingBootTime()
-        {
-            float remain = BOOT_SECONDS - GetElapsedBootSeconds();
-            if (remain < 0f) remain = 0f;
-            return remain;
-        }
-
-        // ------------------------------------------------------------
         // Readiness gates
         // ------------------------------------------------------------
         private bool IsCoreReadyForSubFeatures()
@@ -786,9 +748,6 @@ namespace BanksOfCalradia.Source.Systems
             try
             {
                 if (!IsBaseEnvironmentReady())
-                    return false;
-
-                if (GetElapsedBootSeconds() < BOOT_SECONDS)
                     return false;
 
                 if (!_uiWarmupReady)
@@ -807,6 +766,7 @@ namespace BanksOfCalradia.Source.Systems
                 return false;
             }
         }
+
         // ------------------------------------------------------------
         // Manual Storage Sync (SAFE – main thread only)
         // ------------------------------------------------------------
@@ -814,7 +774,6 @@ namespace BanksOfCalradia.Source.Systems
         {
             try
             {
-                // Nunca tentar sincronizar se o sistema já está marcado como broken
                 if (_healthState == BankHealthState.Broken)
                     return;
 
@@ -846,8 +805,6 @@ namespace BanksOfCalradia.Source.Systems
                 if (!IsTownEnvironmentReady())
                     return false;
 
-                // Garante init mínimo antes de liberar submenus.
-                // Sem tocar em dicionários internos: usa API que já existe (GetOrCreateSavings).
                 TryEnsureRuntimeInitForCurrentTown();
 
                 lock (_storageLock)

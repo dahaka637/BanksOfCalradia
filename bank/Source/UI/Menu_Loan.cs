@@ -42,7 +42,7 @@ namespace BanksOfCalradia.Source.UI
         // Separador usado no corpo do menu
         private const string SEP = "____________________";
 
-        private static bool _registered;
+
 
         // ------------------------------------------------------------
         // Context Hardening
@@ -231,16 +231,12 @@ namespace BanksOfCalradia.Source.UI
             if (starter == null)
                 return;
 
-            if (_registered)
-                return;
-            _registered = true;
-
-            // Menu principal de empréstimos
             starter.AddGameMenu(
                 "bank_loanmenu",
                 L.S("loan_menu_loading", "Loading bank loan information..."),
                 args => OnMenuInit_Main(args, behavior)
             );
+
 
             // Opção: solicitar empréstimo
             starter.AddGameMenuOption(

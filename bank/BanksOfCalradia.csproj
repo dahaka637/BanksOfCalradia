@@ -19,6 +19,12 @@
 		<OutputPath>bin\Win64_Shipping_Client\</OutputPath>
 	</PropertyGroup>
 
+	<ItemGroup>
+	  <Compile Remove="Source\Settings\**" />
+	  <EmbeddedResource Remove="Source\Settings\**" />
+	  <None Remove="Source\Settings\**" />
+	</ItemGroup>
+
 	<!-- ===================================================== -->
 	<!--      REFERÊNCIAS NATIVAS DO BANNERLORD 1.3.x          -->
 	<!-- ===================================================== -->
@@ -171,12 +177,9 @@
 	<!-- ===================================================== -->
 	<ItemGroup>
 		<Reference Include="0Harmony">
-			<HintPath>$(BannerlordPath)\Modules\Bannerlord.Harmony\bin\Win64_Shipping_Client\0Harmony.dll</HintPath>
+			<HintPath>C:\Users\hw223\Desktop\Bannerlord.Harmony\bin\Win64_Shipping_Client\0Harmony.dll</HintPath>
 			<Private>false</Private>
 		</Reference>
-	</ItemGroup>
-	<ItemGroup>
-	  <Folder Include="Source\Settings\" />
 	</ItemGroup>
 
 		

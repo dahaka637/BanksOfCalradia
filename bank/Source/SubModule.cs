@@ -1,16 +1,15 @@
 ﻿// ============================================
 // BanksOfCalradia - SubModule.cs
 // Author: Dahaka
-// Version: 2.2.2 (Production + Full Model Restore)
+// Version: 2.2.3 (Menu Duplication Fix)
 // Description:
 //   Core initialization for Banks of Calradia.
 //
 //   • Loads Harmony patches (+ SafeUI fallback layer)
-//   • Registers behaviors, models, menus
-//   • Displays boot messages (localized)
+//   • Registers campaign behaviors and models
+//   • DOES NOT register any menus (menus are behavior-owned)
 // ============================================
 
-using System;
 using HarmonyLib;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.Core;
@@ -20,7 +19,6 @@ using TaleWorlds.MountAndBlade;
 using BanksOfCalradia.Source.Core;
 using BanksOfCalradia.Source.Systems;
 using BanksOfCalradia.Source.Systems.Processing;
-using BanksOfCalradia.Source.UI;
 
 namespace BanksOfCalradia.Source
 {
@@ -29,7 +27,7 @@ namespace BanksOfCalradia.Source
         private bool _bootMessageShown;
 
         // ============================================================
-        // (0) Carrega Harmony + camada de segurança SafeUI
+        // (0) Harmony + SafeUI bootstrap
         // ============================================================
         protected override void OnSubModuleLoad()
         {
@@ -40,7 +38,7 @@ namespace BanksOfCalradia.Source
                 var harmony = new Harmony("BanksOfCalradia.Patches");
                 harmony.PatchAll();
 
-                // Proteção extra
+                // Camada extra de proteção UI
                 BankSafeUIHarmonyBootstrap.InstallExtraPatches(harmony);
             }
             catch
@@ -50,7 +48,7 @@ namespace BanksOfCalradia.Source
         }
 
         // ============================================================
-        // (1) Inicialização de Campanha
+        // (1) Game start (Campaign only)
         // ============================================================
         protected override void OnGameStart(Game game, IGameStarter starter)
         {
@@ -63,36 +61,20 @@ namespace BanksOfCalradia.Source
             try
             {
                 // --------------------------------------------------------
-                // (1) Behavior central + persistência
+                // Behavior central (menus + storage + warmup)
                 // --------------------------------------------------------
-                var bankBehavior = new BankCampaignBehavior();
-                campaignStarter.AddBehavior(bankBehavior);
+                campaignStarter.AddBehavior(new BankCampaignBehavior());
 
                 // --------------------------------------------------------
-                // (2) Processadores do Banco
+                // Processadores do banco
                 // --------------------------------------------------------
                 campaignStarter.AddBehavior(new BankLoanProcessor());
 
-                // ========================================================
-                // (3) MODELOS QUE PRECISAM EXISTIR PARA FUNCIONAR
-                // ========================================================
-
-                // 🔥 RESTAURADO: Sem isso não existe ProsperityGain
+                // --------------------------------------------------------
+                // Modelos necessários
+                // --------------------------------------------------------
                 campaignStarter.AddModel(new BankProsperityModel());
-
-                // 🔥 RESTAURADO: Sem isso FoodAid nunca aparece no ExplainedNumber
                 campaignStarter.AddModel(new BankFoodModelProxy());
-
-                // ⚠️ NÃO ADICIONAR FinanceProcessor -> substituído pelo fallback
-                // ⚠️ NÃO ADICIONAR FoodAid antigo (esse abaixo já faz tudo)
-                // ========================================================
-
-                // --------------------------------------------------------
-                // (4) Menus
-                // --------------------------------------------------------
-                BankMenu_Savings.RegisterMenu(campaignStarter, bankBehavior);
-                BankMenu_Loan.RegisterMenu(campaignStarter, bankBehavior);
-                BankMenu_LoanPay.RegisterMenu(campaignStarter, bankBehavior);
             }
             catch
             {
@@ -101,7 +83,7 @@ namespace BanksOfCalradia.Source
         }
 
         // ============================================================
-        // (2) Mensagem de Boot
+        // (2) Boot message (once)
         // ============================================================
         protected override void OnBeforeInitialModuleScreenSetAsRoot()
         {

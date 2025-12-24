@@ -37,8 +37,6 @@ namespace BanksOfCalradia.Source.UI
 
         private static string _selectedLoanId = null;
 
-        private static BankCampaignBehavior _behaviorRef;
-        private static bool _registered;
 
         // -------------------------------------------------------------
         // Registro de menus
@@ -48,18 +46,12 @@ namespace BanksOfCalradia.Source.UI
             if (starter == null)
                 return;
 
-            if (_registered)
-                return;
-
-            _registered = true;
-            _behaviorRef = behavior;
-
-            // Lista de empréstimos ativos na cidade atual
             starter.AddGameMenu(
                 "bank_loan_pay",
                 L.S("loanpay_list_loading", "Loading active loans..."),
                 OnMenuInit_List
             );
+
 
             // Detalhes do contrato selecionado
             starter.AddGameMenu(
@@ -201,19 +193,16 @@ namespace BanksOfCalradia.Source.UI
 
         private static BankCampaignBehavior GetBehavior()
         {
-            if (_behaviorRef == null && Campaign.Current != null)
+            try
             {
-                try
-                {
-                    _behaviorRef = Campaign.Current.GetCampaignBehavior<BankCampaignBehavior>();
-                }
-                catch
-                {
-                    _behaviorRef = null;
-                }
+                return Campaign.Current?.GetCampaignBehavior<BankCampaignBehavior>();
             }
-            return _behaviorRef;
+            catch
+            {
+                return null;
+            }
         }
+
 
         private static bool TryGetStrictTownContext(
             out BankCampaignBehavior behavior,

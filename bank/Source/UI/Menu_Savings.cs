@@ -34,7 +34,6 @@ namespace BanksOfCalradia.Source.UI
         // Quick deposit / withdraw fixed values
         private static readonly int[] QuickValues = { 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000 };
 
-        private static bool _registered;
 
         // ============================================================
         // Context Hardening
@@ -234,15 +233,12 @@ namespace BanksOfCalradia.Source.UI
         // ============================================================
         public static void RegisterMenu(CampaignGameStarter starter, BankCampaignBehavior behavior)
         {
-            if (_registered)
-                return;
-            _registered = true;
-
             starter.AddGameMenu(
                 "bank_savings",
                 L.S("savings_menu_loading", "Loading savings data..."),
                 args => OnMenuInit_Main(args, behavior)
             );
+
 
             starter.AddGameMenuOption(
                 "bank_savings",
