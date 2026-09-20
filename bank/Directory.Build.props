@@ -1,5 +1,9 @@
 <Project>
 	<PropertyGroup>
 		<BannerlordPath>C:\Program Files (x86)\Steam\steamapps\common\Mount &amp; Blade II Bannerlord</BannerlordPath>
+		<HarmonyPath>C:\Users\hw223\Desktop\Bannerlord.Harmony\bin\Win64_Shipping_Client\0Harmony.dll</HarmonyPath>
 	</PropertyGroup>
+
+	<!-- Overrides locais (por máquina/SO), nunca versionados -->
+	<Import Project="Directory.Build.local.props" Condition="Exists('Directory.Build.local.props')" />
 </Project>

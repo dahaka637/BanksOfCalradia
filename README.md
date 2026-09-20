@@ -19,9 +19,9 @@ Banks of Calradia adds a per-settlement banking layer with savings accounts, loa
 
 ## Compatibility
 
-- Bannerlord: v1.3.7
+- Bannerlord: v1.4.8
 - DLC: War Sails (supported)
-- Dependencies: none
+- Dependencies: Bannerlord.Harmony
 
 ## Installation
 
@@ -51,7 +51,7 @@ High-level responsibility split:
     - `LoanProcessor.cs`: daily loan logic (installments, late fees, caps, completion).
     - `ProsperityModel.cs`: savings → expected prosperity change injection.
     - `BankFoodModelProxy.cs`: UI-facing proxy layer for food/prosperity presentation (non-destructive).
-    - `BankFinanceFallbackBehavior.cs`: safe fallback hooks for version/edge cases.
+    - `BankClanFinanceModel.cs`: overrides `DefaultClanFinanceModel` (income/gold-change) via the native model system instead of Harmony-patching it.
   - `Utils/`
     - `BankSuccessionUtils.cs`: transfers banking data across hero/clan succession.
     - `BankTradeXpUtils.cs`: converts profits to Trade XP with damping.

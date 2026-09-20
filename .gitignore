@@ -23,3 +23,6 @@ Desktop.ini
 # Bannerlord Mod output
 Publish/
 Module/
+
+# Caminhos de build específicos de cada máquina/SO
+Directory.Build.local.props

@@ -1,7 +1,7 @@
 ﻿// ============================================
 // BanksOfCalradia - SubModule.cs
 // Author: Dahaka
-// Version: 2.2.3 (Menu Duplication Fix)
+// Version: 2.2.0 (Sandbox crash fix: finance model no longer Harmony-patched)
 // Description:
 //   Core initialization for Banks of Calradia.
 //
@@ -37,9 +37,6 @@ namespace BanksOfCalradia.Source
             {
                 var harmony = new Harmony("BanksOfCalradia.Patches");
                 harmony.PatchAll();
-
-                // Camada extra de proteção UI
-                BankSafeUIHarmonyBootstrap.InstallExtraPatches(harmony);
             }
             catch
             {
@@ -75,6 +72,7 @@ namespace BanksOfCalradia.Source
                 // --------------------------------------------------------
                 campaignStarter.AddModel(new BankProsperityModel());
                 campaignStarter.AddModel(new BankFoodModelProxy());
+                campaignStarter.AddModel(new BankClanFinanceModel());
             }
             catch
             {
