@@ -26,3 +26,7 @@ Module/
 
 # Caminhos de build específicos de cada máquina/SO
 Directory.Build.local.props
+
+# Staging de upload pro Steam Workshop
+.workshop_upload/
+.workshop_meta/
